@@ -2197,9 +2197,40 @@
                 
                 this.relaxCanvas = canvas;
                 this.relaxCtx = canvas.getContext('2d');
-                
+
                 // グラフィックシステム
                 this.graphics = [];
+
+                // 入力ダイナミクス用のメトリクス
+                this.relaxKeyCount = 0; // 累積入力数
+                this.relaxKeyTimes = []; // 直近の入力時刻（ms）
+
+                // フルスクリーン用 Canvas を追加（画面全体のエフェクト）
+                const existingGlobal = document.getElementById('relaxGlobalCanvas');
+                if (existingGlobal) existingGlobal.remove();
+                const globalCanvas = document.createElement('canvas');
+                globalCanvas.id = 'relaxGlobalCanvas';
+                globalCanvas.style.position = 'fixed';
+                globalCanvas.style.top = '0';
+                globalCanvas.style.left = '0';
+                globalCanvas.style.width = '100%';
+                globalCanvas.style.height = '100%';
+                globalCanvas.style.pointerEvents = 'none';
+                // モーダルやトースト(1000)より下、通常UIより上
+                globalCanvas.style.zIndex = '500';
+                document.body.appendChild(globalCanvas);
+                // 実ピクセルサイズ設定
+                const setGlobalSize = () => {
+                    globalCanvas.width = window.innerWidth;
+                    globalCanvas.height = window.innerHeight;
+                };
+                setGlobalSize();
+                this.globalCanvas = globalCanvas;
+                this.globalCtx = globalCanvas.getContext('2d');
+
+                // グローバルエフェクト用の配列
+                this.globalParticles = [];
+                this.globalRipples = [];
                 
                 // 使用可能なキーリスト（a-zまで）
                 this.relaxKeys = 'abcdefghijklmnopqrstuvwxyz';
@@ -2216,6 +2247,10 @@
                         const typingArea = document.getElementById('typingArea');
                         this.relaxCanvas.width = typingArea.offsetWidth;
                         this.relaxCanvas.height = typingArea.offsetHeight;
+                    }
+                    if (this.isRelaxMode && this.globalCanvas) {
+                        this.globalCanvas.width = window.innerWidth;
+                        this.globalCanvas.height = window.innerHeight;
                     }
                 };
                 window.addEventListener('resize', this.resizeHandler);
@@ -2249,10 +2284,31 @@
                     if (/^[a-z]$/.test(key)) {
                         // 音を再生
                         this.audioSystem.playSound(key);
-                        
+
                         // グラフィック生成
                         this.createGraphic(key);
-                        
+
+                        // 入力メトリクス更新（直近2秒のキー数＝速度目安）
+                        const now = Date.now();
+                        this.relaxKeyCount += 1;
+                        this.relaxKeyTimes.push(now);
+                        // 2秒より古いものを削除
+                        const cutoff = now - 2000;
+                        this.relaxKeyTimes = this.relaxKeyTimes.filter(t => t >= cutoff);
+                        const kps = this.relaxKeyTimes.length / 2; // keys per second
+                        // 速度に応じた強度(0.0-1.0)を算出（最大 ~8kps で1.0）
+                        const speedIntensity = Math.max(0, Math.min(1, kps / 8));
+                        // 累積入力に応じたベース強度（上限1.0）
+                        const amountIntensity = Math.max(0, Math.min(1, this.relaxKeyCount / 200));
+                        // 合成強度
+                        const intensity = Math.max(speedIntensity, amountIntensity);
+
+                        // フルスクリーンのエフェクト発火
+                        this.spawnEdgeStreak(intensity);
+                        if (Math.random() < 0.3 + intensity * 0.4) {
+                            this.spawnGlobalRipple(intensity);
+                        }
+
                         // キーボードハイライト
                         this.highlightKey(key, true);
                         setTimeout(() => this.highlightKey(key, false), 200);
@@ -2362,12 +2418,12 @@
 
             animateRelax() {
                 if (!this.isRelaxMode) return;
-                
+
                 if (!this.relaxCtx || !this.relaxCanvas) {
                     console.error('Canvas context not available');
                     return;
                 }
-                
+
                 const ctx = this.relaxCtx;
                 const canvas = this.relaxCanvas;
                 
@@ -2393,8 +2449,132 @@
                     }
                     return false;
                 });
-                
+
+                // フルスクリーン・エフェクトの描画
+                if (this.globalCtx && this.globalCanvas) {
+                    const gctx = this.globalCtx;
+                    const gcan = this.globalCanvas;
+                    // 透明クリア
+                    gctx.clearRect(0, 0, gcan.width, gcan.height);
+
+                    // パーティクル更新・描画
+                    this.globalParticles = this.globalParticles.filter(p => {
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.life -= 0.015;
+                        p.size += p.grow;
+                        p.vx *= 0.99;
+                        p.vy *= 0.99;
+                        if (p.life > 0) {
+                            gctx.save();
+                            gctx.globalAlpha = Math.max(0, p.life) * 0.8;
+                            const color = `hsla(${p.hue}, 80%, ${p.lightness}%, ${Math.max(0, p.life)})`;
+                            gctx.fillStyle = color;
+                            gctx.beginPath();
+                            gctx.arc(p.x, p.y, Math.max(0.5, p.size), 0, Math.PI * 2);
+                            gctx.fill();
+                            gctx.restore();
+                            return true;
+                        }
+                        return false;
+                    });
+
+                    // リップル更新・描画
+                    this.globalRipples = this.globalRipples.filter(r => {
+                        r.radius += r.growth;
+                        r.life -= 0.01;
+                        if (r.life > 0) {
+                            gctx.save();
+                            gctx.beginPath();
+                            gctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+                            gctx.strokeStyle = `hsla(${r.hue}, 70%, 60%, ${Math.max(0, r.life)})`;
+                            gctx.lineWidth = 2 + r.growth * 0.3;
+                            gctx.stroke();
+                            gctx.restore();
+                            return true;
+                        }
+                        return false;
+                    });
+                }
+
                 requestAnimationFrame(() => this.animateRelax());
+            }
+
+            // 画面端から内側に流入するストリークを生成（速度・量に応じて）
+            spawnEdgeStreak(intensity = 0.3) {
+                if (!this.globalCanvas) return;
+                const w = this.globalCanvas.width;
+                const h = this.globalCanvas.height;
+                const side = Math.floor(Math.random() * 4); // 0:top 1:right 2:bottom 3:left
+                const count = Math.floor(8 + intensity * 24);
+                const baseHue = Math.floor((Date.now() / 40) % 360);
+                for (let i = 0; i < count; i++) {
+                    let x = 0, y = 0, vx = 0, vy = 0;
+                    const spread = 0.8 + Math.random() * 0.6;
+                    switch (side) {
+                        case 0: // top
+                            x = Math.random() * w;
+                            y = -10;
+                            vx = (Math.random() - 0.5) * 2 * spread;
+                            vy = 1.5 + Math.random() * 3 * (0.5 + intensity);
+                            break;
+                        case 1: // right
+                            x = w + 10;
+                            y = Math.random() * h;
+                            vx = - (1.5 + Math.random() * 3 * (0.5 + intensity));
+                            vy = (Math.random() - 0.5) * 2 * spread;
+                            break;
+                        case 2: // bottom
+                            x = Math.random() * w;
+                            y = h + 10;
+                            vx = (Math.random() - 0.5) * 2 * spread;
+                            vy = - (1.5 + Math.random() * 3 * (0.5 + intensity));
+                            break;
+                        case 3: // left
+                            x = -10;
+                            y = Math.random() * h;
+                            vx = 1.5 + Math.random() * 3 * (0.5 + intensity);
+                            vy = (Math.random() - 0.5) * 2 * spread;
+                            break;
+                    }
+                    const hue = (baseHue + i * 7) % 360;
+                    this.globalParticles.push({
+                        x, y, vx, vy,
+                        life: 0.9 + Math.random() * 0.6,
+                        size: 1 + Math.random() * (3 + intensity * 4),
+                        grow: 0.02 + Math.random() * 0.04,
+                        hue,
+                        lightness: 55 + Math.random() * 20
+                    });
+                }
+            }
+
+            // 画面全体のリップル（ゆっくり広がる円）
+            spawnGlobalRipple(intensity = 0.3) {
+                if (!this.globalCanvas) return;
+                const w = this.globalCanvas.width;
+                const h = this.globalCanvas.height;
+                // 端寄りまたは中央付近に発生
+                const edgeBias = Math.random();
+                let x = Math.random() * w;
+                let y = Math.random() * h;
+                if (edgeBias < 0.5) {
+                    const side = Math.floor(Math.random() * 4);
+                    if (side === 0) { y = h * 0.1; }
+                    if (side === 1) { x = w * 0.9; }
+                    if (side === 2) { y = h * 0.9; }
+                    if (side === 3) { x = w * 0.1; }
+                }
+                const baseRadius = 20 + intensity * 60;
+                const growth = 1.5 + intensity * 3;
+                const hue = Math.floor((Date.now() / 30) % 360);
+                this.globalRipples.push({
+                    x, y,
+                    radius: baseRadius,
+                    growth,
+                    life: 0.8 + Math.random() * 0.4,
+                    hue
+                });
             }
 
             drawShape(ctx, g) {
@@ -2536,9 +2716,16 @@
                 if (canvas) {
                     canvas.remove();
                 }
+
+                const globalCanvas = document.getElementById('relaxGlobalCanvas');
+                if (globalCanvas) {
+                    globalCanvas.remove();
+                }
                 
                 // グラフィックリセット
                 this.graphics = [];
+                this.globalParticles = [];
+                this.globalRipples = [];
                 
                 // リサイズハンドラー削除
                 if (this.resizeHandler) {
