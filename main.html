@@ -2229,10 +2229,9 @@
 
             updateRelaxUI() {
                 const textDisplay = document.getElementById('textDisplay');
-                
-                textDisplay.innerHTML = `
-                    <div class="relax-text" style="position: relative; z-index: 2;">${this.t('relaxModeDesc')}</div>
-                `;
+                // リラックスモードでは説明テキストを非表示にする
+                // レイアウト維持のため、空にしておく
+                textDisplay.innerHTML = '';
             }
 
             handleKeyPress(e) {
