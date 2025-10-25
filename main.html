@@ -1386,6 +1386,12 @@
                 this.language = 'en';
                 this.history = [];
                 this.customProblems = { beginner: [], intermediate: [], advanced: [] };
+                // ビジュアル用の初期化（通常モードでも使う）
+                this.graphics = [];
+                this.globalParticles = [];
+                this.globalRipples = [];
+                this.relaxKeyCount = 0;
+                this.relaxKeyTimes = [];
                 this.loadSettings();
                 this.loadHistory();
                 this.loadCustomProblems();
@@ -1494,6 +1500,60 @@
                 document.getElementById('startBtn').classList.add('hidden');
                 document.getElementById('pauseBtn').classList.remove('hidden');
                 document.getElementById('resetBtn').classList.remove('hidden');
+
+                // 通常モードではメイン領域にアニメーションを表示しないため、
+                // タイピングエリア用キャンバスは作成しない
+                this.relaxCanvas = null;
+                this.relaxCtx = null;
+
+                // フルスクリーン用キャンバス
+                let globalCanvas = document.getElementById('relaxGlobalCanvas');
+                if (!globalCanvas) {
+                    globalCanvas = document.createElement('canvas');
+                    globalCanvas.id = 'relaxGlobalCanvas';
+                    globalCanvas.style.position = 'fixed';
+                    globalCanvas.style.top = '0';
+                    globalCanvas.style.left = '0';
+                    globalCanvas.style.width = '100%';
+                    globalCanvas.style.height = '100%';
+                    globalCanvas.style.pointerEvents = 'none';
+                    globalCanvas.style.zIndex = '500';
+                    document.body.appendChild(globalCanvas);
+                }
+                globalCanvas.width = window.innerWidth;
+                globalCanvas.height = window.innerHeight;
+                this.globalCanvas = globalCanvas;
+                this.globalCtx = globalCanvas.getContext('2d');
+
+                // メトリクスおよびエフェクト配列初期化
+                this.relaxKeyCount = this.relaxKeyCount || 0;
+                this.relaxKeyTimes = this.relaxKeyTimes || [];
+                this.globalParticles = this.globalParticles || [];
+                this.globalRipples = this.globalRipples || [];
+
+                // リサイズ対応（重複追加防止）
+                if (!this.resizeHandler) {
+                    this.resizeHandler = () => {
+                        if (this.relaxCanvas) {
+                            const typingArea = document.getElementById('typingArea');
+                            if (typingArea) {
+                                this.relaxCanvas.width = typingArea.offsetWidth;
+                                this.relaxCanvas.height = typingArea.offsetHeight;
+                            }
+                        }
+                        if (this.globalCanvas) {
+                            this.globalCanvas.width = window.innerWidth;
+                            this.globalCanvas.height = window.innerHeight;
+                        }
+                    };
+                    window.addEventListener('resize', this.resizeHandler);
+                }
+
+                // アニメーションループ開始（多重開始防止）
+                if (!this._visualsAnimating) {
+                    this._visualsAnimating = true;
+                    this.animateRelax();
+                }
             }
 
             pausePractice() {
@@ -2374,6 +2434,38 @@
                     }, 300);
                 }
                 
+                // ビジュアル（通常モードでも発生）
+                // キーが単一文字（スペース等は除く）なら発火
+                if (/^.$/.test(key) && key.length === 1) {
+                    // タイピングエリアの幾何学模様
+                    if (this.relaxCanvas && this.relaxCtx) {
+                        this.createGraphic(key.toLowerCase());
+                    }
+                    // 入力メトリクス更新
+                    const now = Date.now();
+                    this.relaxKeyCount = (this.relaxKeyCount || 0) + 1;
+                    this.relaxKeyTimes = (this.relaxKeyTimes || []);
+                    this.relaxKeyTimes.push(now);
+                    const cutoff = now - 2000;
+                    this.relaxKeyTimes = this.relaxKeyTimes.filter(t => t >= cutoff);
+                    const kps = this.relaxKeyTimes.length / 2;
+                    const speedIntensity = Math.max(0, Math.min(1, kps / 8));
+                    const amountIntensity = Math.max(0, Math.min(1, (this.relaxKeyCount || 0) / 200));
+                    const intensity = Math.max(speedIntensity, amountIntensity);
+                    // 全画面エフェクト
+                    if (this.globalCanvas && this.globalCtx) {
+                        this.spawnEdgeStreak(intensity);
+                        if (Math.random() < 0.3 + intensity * 0.4) {
+                            this.spawnGlobalRipple(intensity);
+                        }
+                    }
+                    // アニメーションループが停止していたら再開
+                    if (!this._visualsAnimating) {
+                        this._visualsAnimating = true;
+                        this.animateRelax();
+                    }
+                }
+
                 this.updateStats();
             }
 
@@ -2417,38 +2509,40 @@
             }
 
             animateRelax() {
-                if (!this.isRelaxMode) return;
-
-                if (!this.relaxCtx || !this.relaxCanvas) {
-                    console.error('Canvas context not available');
+                // いずれかのビジュアルキャンバスがなければ停止
+                if (!((this.relaxCtx && this.relaxCanvas) || (this.globalCtx && this.globalCanvas))) {
+                    this._visualsAnimating = false;
                     return;
                 }
 
                 const ctx = this.relaxCtx;
                 const canvas = this.relaxCanvas;
                 
-                // 背景をクリア（完全透明 - サイトの背景を見せる）
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                // グラフィックを更新・描画
-                this.graphics = this.graphics.filter(g => {
-                    g.scale += (g.maxScale - g.scale) * 0.15;
-                    g.rotation += 0.05;
-                    g.life -= 0.012;
-                    
-                    if (g.life > 0) {
-                        ctx.save();
-                        ctx.translate(g.x, g.y);
-                        ctx.rotate(g.rotation);
-                        ctx.globalAlpha = g.life;
+                // タイピングエリア内キャンバスの描画
+                if (ctx && canvas) {
+                    // 背景をクリア（完全透明 - サイトの背景を見せる）
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    // グラフィックを更新・描画
+                    this.graphics = this.graphics.filter(g => {
+                        g.scale += (g.maxScale - g.scale) * 0.15;
+                        g.rotation += 0.05;
+                        g.life -= 0.012;
                         
-                        this.drawShape(ctx, g);
-                        
-                        ctx.restore();
-                        return true;
-                    }
-                    return false;
-                });
+                        if (g.life > 0) {
+                            ctx.save();
+                            ctx.translate(g.x, g.y);
+                            ctx.rotate(g.rotation);
+                            ctx.globalAlpha = g.life;
+                            
+                            this.drawShape(ctx, g);
+                            
+                            ctx.restore();
+                            return true;
+                        }
+                        return false;
+                    });
+                }
 
                 // フルスクリーン・エフェクトの描画
                 if (this.globalCtx && this.globalCanvas) {
@@ -2711,16 +2805,13 @@
                     if (resetBtn) resetBtn.classList.add('hidden');
                 }
                 
-                // Canvas削除
-                const canvas = document.getElementById('relaxCanvas');
-                if (canvas) {
-                    canvas.remove();
+                // タイピングエリアのキャンバスは通常モードでは非表示にしたいので削除
+                const areaCanvas = document.getElementById('relaxCanvas');
+                if (areaCanvas) {
+                    areaCanvas.remove();
                 }
-
-                const globalCanvas = document.getElementById('relaxGlobalCanvas');
-                if (globalCanvas) {
-                    globalCanvas.remove();
-                }
+                this.relaxCanvas = null;
+                this.relaxCtx = null;
                 
                 // グラフィックリセット
                 this.graphics = [];
