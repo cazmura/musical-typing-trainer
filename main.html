@@ -59,6 +59,11 @@
             border-bottom: 2px solid var(--border);
             margin-bottom: 30px;
         }
+        /* ヘッダーのテキストラベルは非表示（絵文字のみ表示） */
+        header .controls #historyBtnHeader,
+        header .controls #relaxBtn {
+            display: none;
+        }
 
         h1 {
             font-size: 28px;
@@ -186,6 +191,11 @@
             color: white;
             transform: scale(1.2);
             animation: pulse 1s infinite;
+        }
+        /* 一時停止中は問題ハイライトの点滅を停止 */
+        .paused .char.current {
+            animation: none !important;
+            opacity: 1 !important;
         }
         
         .char.space.current {
@@ -1440,6 +1450,8 @@
                     this.correctCount++;
                     this.markCharacter(this.currentIndex, 'correct');
                     this.currentIndex++;
+                    // 成功時は短時間でハイライトを確実に解除
+                    setTimeout(() => this.highlightKey(key, false), 200);
                     
                     if (this.currentIndex >= this.currentText.length) {
                         this.nextProblem();
@@ -1477,8 +1489,17 @@
                 
                 if (targetElement) {
                     if (active) {
-                        targetElement.classList.add(error ? 'error' : 'active');
+                        if (error) {
+                            // エラーハイライト時は active を消して error を付ける
+                            targetElement.classList.remove('active');
+                            targetElement.classList.add('error');
+                        } else {
+                            // 成功ハイライト時は error を消して active を付ける
+                            targetElement.classList.remove('error');
+                            targetElement.classList.add('active');
+                        }
                     } else {
+                        // 非アクティブ時は両方外す
                         targetElement.classList.remove('active', 'error');
                     }
                 }
@@ -1487,6 +1508,7 @@
             startPractice() {
                 this.isPlaying = true;
                 this.isPaused = false;
+                document.body.classList.remove('paused');
                 this.currentProblem = 0;
                 this.correctCount = 0;
                 this.incorrectCount = 0;
@@ -1561,6 +1583,7 @@
                 this.pauseTime = Date.now();
                 document.getElementById('pauseBtn').classList.add('hidden');
                 document.getElementById('resumeBtn').classList.remove('hidden');
+                document.body.classList.add('paused');
             }
 
             resumePractice() {
@@ -1568,11 +1591,13 @@
                 this.totalPauseTime += Date.now() - this.pauseTime;
                 document.getElementById('pauseBtn').classList.remove('hidden');
                 document.getElementById('resumeBtn').classList.add('hidden');
+                document.body.classList.remove('paused');
             }
 
             resetPractice() {
                 this.isPlaying = false;
                 this.isPaused = false;
+                document.body.classList.remove('paused');
                 this.currentIndex = 0;
                 this.currentProblem = 0;
                 this.correctCount = 0;
