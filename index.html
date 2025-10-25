@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Musical Typing Trainer - 音響タイピング練習システム</title>
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-GBQFDZDC37"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);} 
+        gtag('js', new Date());
+        gtag('config', 'G-GBQFDZDC37');
+    </script>
     <style>
         * {
             margin: 0;
@@ -1523,6 +1531,14 @@
                 document.getElementById('pauseBtn').classList.remove('hidden');
                 document.getElementById('resetBtn').classList.remove('hidden');
 
+                // GA4: practice start event
+                if (typeof gtag === 'function') {
+                    gtag('event', 'start_practice', {
+                        difficulty: this.difficulty,
+                        problems: this.problemsPerSession
+                    });
+                }
+
                 // 通常モードではメイン領域にアニメーションを表示しないため、
                 // タイピングエリア用キャンバスは作成しない
                 this.relaxCanvas = null;
@@ -1754,6 +1770,20 @@
                     difficulty: this.difficulty
                 };
                 
+                // GA4: practice complete event
+                if (typeof gtag === 'function') {
+                    gtag('event', 'exercise_complete', {
+                        difficulty: this.difficulty,
+                        score: score,
+                        rank: rank,
+                        wpm: wpm,
+                        accuracy: Math.round(accuracy),
+                        correct: this.correctCount,
+                        incorrect: this.incorrectCount,
+                        time_seconds: Math.round(totalTime)
+                    });
+                }
+
                 this.saveResult(result);
                 this.showResults(result);
             }
