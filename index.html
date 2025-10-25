@@ -13,6 +13,23 @@
         gtag('config', 'G-GBQFDZDC37');
     </script>
     <style>
+        /* Mobile-only overlay */
+        .mobile-only-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 24px;
+            z-index: 10000;
+        }
+        .mobile-only-message {
+            font-size: 20px;
+            line-height: 1.6;
+        }
         * {
             margin: 0;
             padding: 0;
@@ -719,6 +736,29 @@
     </style>
 </head>
 <body data-theme="light">
+    <!-- Mobile access blocker -->
+    <div id="mobileOnlyOverlay" class="mobile-only-overlay hidden">
+        <div class="mobile-only-message">
+            This site is supported on desktop devices only.
+        </div>
+    </div>
+    <script>
+        (function() {
+            function isMobileDevice() {
+                var ua = navigator.userAgent || navigator.vendor || window.opera;
+                var isMobileUA = /android|iphone|ipod|windows phone|iemobile|mobile/i.test(ua);
+                var smallScreen = Math.max(screen.width, screen.height) <= 820; // phones and small tablets
+                var touchHeavy = (navigator.maxTouchPoints || 0) > 1;
+                return isMobileUA || (touchHeavy && smallScreen);
+            }
+            if (isMobileDevice()) {
+                var overlay = document.getElementById('mobileOnlyOverlay');
+                if (overlay) overlay.classList.remove('hidden');
+                document.documentElement.style.overflow = 'hidden';
+                document.body.style.overflow = 'hidden';
+            }
+        })();
+    </script>
     <div class="container">
         <header>
             <h1>🎹 Musical Typing Trainer</h1>
@@ -1000,7 +1040,7 @@
                 // ガイド
                 guideTitle: "📖 Musical Typing Trainer ガイド",
                 aboutTitle: "🎹 このサイトについて",
-                aboutText: "Musical Typing Trainerは、タイピング練習に音楽的な要素を加えた革新的な学習ツールです。キーを押すたびに音が鳴り、楽しみながらタイピングスキルを向上させることができます。",
+                aboutText: "Musical Typing Trainerは、タイピング練習に音楽的な要素を加えた学習ツールです。キーを押すたびに音が鳴り、楽しみながらタイピングスキルを向上させることができます。",
                 howToTitle: "🚀 使い方",
                 howToStep1: "ボタンを押すか、キーを押して練習を開始",
                 howToStep2: "画面に表示された文字を順番にタイピング",
@@ -1182,7 +1222,7 @@
                 // Guide
                 guideTitle: "📖 Musical Typing Trainer Guide",
                 aboutTitle: "🎹 About This Site",
-                aboutText: "Musical Typing Trainer is an innovative learning tool that adds musical elements to typing practice. With each keystroke producing a sound, you can improve your typing skills while enjoying music.",
+                aboutText: "Musical Typing Trainer is an learning tool that adds musical elements to typing practice. With each keystroke producing a sound, you can improve your typing skills while enjoying music.",
                 howToTitle: "🚀 How to Use",
                 howToStep1: "Press the Start button or SPACE key to begin practice",
                 howToStep2: "Type the characters displayed on the screen in order",
