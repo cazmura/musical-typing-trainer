@@ -1,0 +1,3226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Musical Typing Trainer - 音響タイピング練習システム</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --accent: #4CAF50;
+            --error: #f44336;
+            --border: #dddddd;
+            --key-bg: #ffffff;
+            --key-active: #4CAF50;
+            --key-error: #f44336;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #ffffff;
+            --text-secondary: #aaaaaa;
+            --accent: #66BB6A;
+            --error: #ef5350;
+            --border: #444444;
+            --key-bg: #2d2d2d;
+            --key-active: #66BB6A;
+            --key-error: #ef5350;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 28px;
+            color: var(--accent);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: var(--text-secondary);
+        }
+
+        button.danger {
+            background: var(--error);
+        }
+
+        .theme-toggle {
+            padding: 8px 12px;
+            font-size: 18px;
+        }
+
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        .typing-area {
+            background: var(--bg-secondary);
+            padding: 40px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .text-display {
+            font-size: 32px;
+            letter-spacing: 2px;
+            line-height: 1.5;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .char {
+            display: inline-block;
+            padding: 2px;
+            transition: all 0.2s;
+            min-width: 8px;
+        }
+        
+        .char.space {
+            min-width: 16px;
+            height: 1em;
+            margin: 0 2px;
+            opacity: 0.7;
+            position: relative;
+            display: inline-block;
+            vertical-align: baseline;
+        }
+        
+        .char.space::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 2px;
+            right: 2px;
+            height: 2px;
+            background: var(--border);
+        }
+
+        .char.current {
+            background: var(--accent);
+            color: white;
+            transform: scale(1.2);
+            animation: pulse 1s infinite;
+        }
+        
+        .char.space.current {
+            background: transparent;
+            opacity: 1;
+            box-shadow: 0 3px 12px rgba(76, 175, 80, 0.5);
+        }
+        
+        .char.space.current::after {
+            background: var(--accent);
+            height: 3px;
+            bottom: -6px;
+        }
+
+        .char.correct {
+            color: var(--accent);
+        }
+        
+        .char.space.correct {
+            background: transparent;
+            opacity: 0.8;
+        }
+        
+        .char.space.correct::after {
+            background: var(--accent);
+            height: 2px;
+            bottom: -6px;
+        }
+
+        .char.incorrect {
+            color: var(--error);
+            background: rgba(244, 67, 54, 0.1);
+            font-weight: bold;
+        }
+        
+        .char.space.incorrect {
+            background: rgba(244, 67, 54, 0.15);
+            opacity: 1;
+            box-shadow: 0 3px 12px rgba(244, 67, 54, 0.4);
+            border-radius: 4px;
+        }
+        
+        .char.space.incorrect::after {
+            background: var(--error);
+            height: 3px;
+            bottom: -6px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .virtual-keyboard {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .keyboard-row {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+
+        .key {
+            min-width: 40px;
+            height: 40px;
+            padding: 5px;
+            background: var(--key-bg);
+            border: 2px solid var(--border);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.1s;
+            cursor: default;
+        }
+
+        .key.space {
+            min-width: 200px;
+        }
+
+        .key.active {
+            background: var(--key-active);
+            color: white;
+            transform: scale(0.95);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .key.error {
+            background: var(--key-error);
+            color: white;
+            animation: shake 0.3s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .settings-panel {
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .setting-group label {
+            font-weight: bold;
+            color: var(--text-secondary);
+        }
+
+        select, input[type="range"], input[type="number"] {
+            padding: 8px;
+            border: 2px solid var(--border);
+            border-radius: 5px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .volume-display {
+            text-align: center;
+            font-size: 18px;
+            color: var(--accent);
+        }
+
+        .results-screen {
+            background: var(--bg-secondary);
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .rank {
+            font-size: 72px;
+            font-weight: bold;
+            color: var(--accent);
+            margin: 20px 0;
+        }
+
+        .rank.S { color: #FFD700; }
+        .rank.A { color: #4CAF50; }
+        .rank.B { color: #2196F3; }
+        .rank.C { color: #FF9800; }
+        .rank.D { color: #f44336; }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .result-item {
+            padding: 20px;
+            background: var(--bg-primary);
+            border-radius: 8px;
+        }
+
+        .history-panel {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            background: var(--bg-primary);
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .guide-content {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .guide-section {
+            margin-bottom: 30px;
+        }
+
+        .guide-section h3 {
+            color: var(--accent);
+            margin-bottom: 15px;
+            font-size: 20px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        .guide-section p {
+            line-height: 1.8;
+            margin-bottom: 10px;
+        }
+
+        .guide-section ul {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+
+        .guide-section li {
+            margin-bottom: 8px;
+        }
+
+        .stat-explanation {
+            background: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .stat-explanation strong {
+            color: var(--accent);
+        }
+
+        .keyboard-hint {
+            background: var(--bg-secondary);
+            padding: 10px 15px;
+            border-radius: 5px;
+            display: inline-block;
+            font-family: monospace;
+            font-weight: bold;
+            margin: 0 5px;
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .feature-item {
+            background: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent);
+        }
+
+        .feature-item h4 {
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background: var(--accent);
+            color: white;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            animation: slideIn 0.3s;
+            z-index: 1000;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: var(--bg-primary);
+            padding: 40px;
+            border-radius: 10px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.3s;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            .text-display {
+                font-size: 24px;
+            }
+
+            .key {
+                min-width: 30px;
+                height: 30px;
+                font-size: 12px;
+            }
+
+            .key.space {
+                min-width: 150px;
+            }
+        }
+
+        /* リラックスモード */
+        .relax-active {
+            position: relative;
+        }
+
+        .relax-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .relax-mode .stats-bar {
+            display: none !important;
+        }
+
+        .relax-mode .typing-area {
+            min-height: 300px;
+        }
+
+        .relax-text {
+            font-size: 28px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        /* ハンバーガーメニュー */
+        .menu-container {
+            position: relative;
+        }
+
+        .menu-button {
+            position: relative;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        .menu-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 10px;
+            background: var(--bg-primary);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 200px;
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+
+        .menu-dropdown.active {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: all;
+        }
+
+        .menu-item {
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .menu-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .menu-item:first-child {
+            border-radius: 6px 6px 0 0;
+        }
+
+        .menu-item:last-child {
+            border-radius: 0 0 6px 6px;
+        }
+
+        .menu-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 5px 0;
+        }
+
+        /* メニューが開いている時のオーバーレイ */
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 999;
+            display: none;
+        }
+
+        .menu-overlay.active {
+            display: block;
+        }
+
+        /* タブスタイル */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+        }
+
+        .tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <div class="container">
+        <header>
+            <h1>🎹 Musical Typing Trainer</h1>
+            <div class="controls">
+                <button onclick="app.showHistory()">📊 <span id="historyBtnHeader">History</span></button>
+                <button onclick="app.showRelaxMode()">🎵 <span id="relaxBtn">Relax Mode</span></button>
+                <button class="theme-toggle" onclick="app.toggleTheme()">🌓</button>
+                <div class="menu-container">
+                    <button class="menu-button" onclick="app.toggleMenu()">☰ Menu</button>
+                    <div class="menu-dropdown" id="menuDropdown">
+                        <button class="menu-item" onclick="app.showGuide(); app.closeMenu();">
+                            <span>❓</span>
+                            <span id="guideBtn">Guide</span>
+                        </button>
+                        <div class="menu-divider"></div>
+                        <button class="menu-item" onclick="app.showSettings(); app.closeMenu();">
+                            <span>⚙️</span>
+                            <span id="settingsBtn">Settings</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <div class="menu-overlay" id="menuOverlay" onclick="app.closeMenu()"></div>
+
+        <!-- ステータスバー -->
+        <div class="stats-bar" id="statsBar">
+            <div class="stat-item">
+                <div class="stat-label">Progress</div>
+                <div class="stat-value" id="progressStat">0/10</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">WPM</div>
+                <div class="stat-value" id="wpmStat">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Accuracy</div>
+                <div class="stat-value" id="accuracyStat">100%</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Time</div>
+                <div class="stat-value" id="timeStat">0:00</div>
+            </div>
+        </div>
+
+        <!-- タイピングエリア -->
+        <div class="typing-area" id="typingArea">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+            <div class="text-display" id="textDisplay">
+                Press Start button or SPACE key to begin practice
+            </div>
+            <div style="margin-top: 20px;">
+                <button id="startBtn" onclick="app.startPractice()">🚀 Start</button>
+                <button id="pauseBtn" class="secondary hidden" onclick="app.pausePractice()">⏸️ Pause</button>
+                <button id="resumeBtn" class="secondary hidden" onclick="app.resumePractice()">▶️ Resume</button>
+                <button id="resetBtn" class="danger hidden" onclick="app.resetPractice()">🔄 Reset</button>
+            </div>
+        </div>
+
+        <!-- バーチャルキーボード -->
+        <div class="virtual-keyboard" id="virtualKeyboard">
+            <div class="keyboard-row">
+                <div class="key" data-key="1">1</div>
+                <div class="key" data-key="2">2</div>
+                <div class="key" data-key="3">3</div>
+                <div class="key" data-key="4">4</div>
+                <div class="key" data-key="5">5</div>
+                <div class="key" data-key="6">6</div>
+                <div class="key" data-key="7">7</div>
+                <div class="key" data-key="8">8</div>
+                <div class="key" data-key="9">9</div>
+                <div class="key" data-key="0">0</div>
+            </div>
+            <div class="keyboard-row">
+                <div class="key" data-key="q">Q</div>
+                <div class="key" data-key="w">W</div>
+                <div class="key" data-key="e">E</div>
+                <div class="key" data-key="r">R</div>
+                <div class="key" data-key="t">T</div>
+                <div class="key" data-key="y">Y</div>
+                <div class="key" data-key="u">U</div>
+                <div class="key" data-key="i">I</div>
+                <div class="key" data-key="o">O</div>
+                <div class="key" data-key="p">P</div>
+            </div>
+            <div class="keyboard-row">
+                <div class="key" data-key="a">A</div>
+                <div class="key" data-key="s">S</div>
+                <div class="key" data-key="d">D</div>
+                <div class="key" data-key="f">F</div>
+                <div class="key" data-key="g">G</div>
+                <div class="key" data-key="h">H</div>
+                <div class="key" data-key="j">J</div>
+                <div class="key" data-key="k">K</div>
+                <div class="key" data-key="l">L</div>
+            </div>
+            <div class="keyboard-row">
+                <div class="key" data-key="z">Z</div>
+                <div class="key" data-key="x">X</div>
+                <div class="key" data-key="c">C</div>
+                <div class="key" data-key="v">V</div>
+                <div class="key" data-key="b">B</div>
+                <div class="key" data-key="n">N</div>
+                <div class="key" data-key="m">M</div>
+            </div>
+            <div class="keyboard-row">
+                <div class="key space" data-key=" ">SPACE</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 音源システム
+        class AudioSystem {
+            constructor() {
+                this.audioContext = null;
+                this.masterVolume = 0.5;
+                this.soundTheme = 'piano';
+                this.activeOscillators = new Map();
+                this.initAudioContext();
+            }
+
+            initAudioContext() {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            // 音階マッピング（ピアノの周波数）
+            getFrequency(key) {
+                const frequencies = {
+                    'a': 261.63, 'b': 293.66, 'c': 329.63, 'd': 349.23, 'e': 392.00,
+                    'f': 440.00, 'g': 493.88, 'h': 523.25, 'i': 587.33, 'j': 659.25,
+                    'k': 698.46, 'l': 783.99, 'm': 830.61, 'n': 880.00, 'o': 987.77,
+                    'p': 1046.50, 'q': 1108.73, 'r': 1174.66, 's': 1318.51, 't': 1396.91,
+                    'u': 1567.98, 'v': 1661.22, 'w': 1760.00, 'x': 1975.53, 'y': 2093.00,
+                    'z': 2217.46, '1': 220.00, '2': 246.94, '3': 277.18, '4': 311.13,
+                    '5': 369.99, '6': 415.30, '7': 466.16, '8': 554.37, '9': 622.25,
+                    '0': 739.99, ' ': 130.81
+                };
+                return frequencies[key.toLowerCase()] || 440;
+            }
+
+            playSound(key) {
+                if (!this.audioContext) {
+                    this.initAudioContext();
+                }
+
+                // AudioContextを再開（ユーザーインタラクション後）
+                if (this.audioContext.state === 'suspended') {
+                    this.audioContext.resume();
+                }
+
+                const now = this.audioContext.currentTime;
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+
+                // 音源テーマに応じた波形選択
+                switch (this.soundTheme) {
+                    case 'piano':
+                        oscillator.type = 'sine';
+                        break;
+                    case 'drum':
+                        oscillator.type = 'square';
+                        break;
+                    case 'synth':
+                        oscillator.type = 'sawtooth';
+                        break;
+                    case 'ambient':
+                        oscillator.type = 'triangle';
+                        break;
+                }
+
+                oscillator.frequency.setValueAtTime(this.getFrequency(key), now);
+                
+                // エンベロープ設定
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(this.masterVolume, now + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+
+                oscillator.start(now);
+                oscillator.stop(now + 0.3);
+
+                // 同時押し対応のため、オシレーターを記録
+                const oscKey = key + Date.now();
+                this.activeOscillators.set(oscKey, oscillator);
+                
+                oscillator.onended = () => {
+                    this.activeOscillators.delete(oscKey);
+                };
+            }
+
+            setVolume(volume) {
+                this.masterVolume = Math.max(0, Math.min(1, volume));
+            }
+
+            setSoundTheme(theme) {
+                this.soundTheme = theme;
+            }
+        }
+
+        // 言語データベース
+        const translations = {
+            ja: {
+                title: "🎹 Musical Typing Trainer",
+                langToggle: "EN",
+                guide: "ガイド",
+                settings: "設定",
+                history: "履歴",
+                progress: "進捗",
+                accuracy: "正確率",
+                time: "時間",
+                start: "🚀 スタート",
+                pause: "⏸️ 一時停止",
+                resume: "▶️ 再開",
+                reset: "🔄 リセット",
+                startMessage: "スタートボタンを押すか、スペースキーで練習を開始してください",
+                // 設定画面
+                settingsTitle: "⚙️ 設定",
+                generalSettings: "一般設定",
+                problemManagement: "問題管理",
+                problemManagementDesc: "既存の問題を確認したり、カスタム問題を追加・編集・削除できます。",
+                totalProblems: "合計問題数",
+                default: "既存",
+                custom: "カスタム",
+                andMore: "他 {count}件",
+                difficulty: "難易度",
+                beginner: "初級",
+                intermediate: "中級",
+                advanced: "上級",
+                problemCount: "問題数",
+                problemSource: "問題の出題元",
+                defaultProblems: "既存の問題のみ",
+                customProblemsOnly: "カスタム問題のみ",
+                bothProblems: "既存の問題とカスタム問題",
+                problemSourceChanged: "問題の出題元を変更しました",
+                soundTheme: "音源テーマ",
+                piano: "ピアノ",
+                drum: "ドラム",
+                synth: "シンセサイザー",
+                ambient: "アンビエント",
+                volume: "音量",
+                resetSettings: "設定をリセット",
+                exportData: "データをエクスポート",
+                close: "閉じる",
+                // 結果画面
+                complete: "🎉 練習完了！",
+                totalScore: "総合スコア",
+                avgWPM: "平均WPM",
+                accuracyRate: "正確率",
+                correctTypes: "正タイプ数",
+                missTypes: "ミスタイプ数",
+                elapsedTime: "所要時間",
+                seconds: "秒",
+                retry: "もう一度",
+                pressSpaceToRetry: "スペースキーを押してもう一度",
+                // 履歴画面
+                historyTitle: "📊 スコア履歴",
+                rank: "ランク",
+                score: "スコア",
+                date: "日時",
+                delete: "削除",
+                deleteAll: "全履歴を削除",
+                noHistory: "履歴がありません",
+                // メッセージ
+                difficultyChanged: "難易度を変更しました",
+                problemCountChanged: "問題数を変更しました",
+                soundThemeChanged: "音源テーマを変更しました",
+                settingsReset: "設定をリセットしました",
+                dataExported: "データをエクスポートしました",
+                historyDeleted: "記録を削除しました",
+                allHistoryDeleted: "全履歴を削除しました",
+                confirmReset: "設定を初期値にリセットしますか?",
+                confirmDelete: "この記録を削除しますか?",
+                confirmDeleteAll: "全ての履歴を削除しますか?",
+                // ガイド
+                guideTitle: "📖 Musical Typing Trainer ガイド",
+                aboutTitle: "🎹 このサイトについて",
+                aboutText: "Musical Typing Trainerは、タイピング練習に音楽的な要素を加えた革新的な学習ツールです。キーを押すたびに音が鳴り、楽しみながらタイピングスキルを向上させることができます。",
+                howToTitle: "🚀 使い方",
+                howToStep1: "ボタンを押すか、キーを押して練習を開始",
+                howToStep2: "画面に表示された文字を順番にタイピング",
+                howToStep3: "正しく入力すると緑色に、間違えると赤色に表示されます",
+                howToStep4: "間違えた場合は、正しいキーを押し直す必要があります",
+                howToStep5: "設定した問題数を完了すると結果画面が表示されます",
+                statsTitle: "📊 各数値の説明",
+                progressDesc: "現在何問目を解いているかを表示します。例: 5/10 = 10問中5問目",
+                wpmDesc: "1分間に入力できる単語数を表します。タイピング速度の指標として広く使われています。",
+                wpmNote: "※ 5文字 = 1単語として計算されます",
+                wpmLevel1: "0-20 WPM: 初心者",
+                wpmLevel2: "20-40 WPM: 平均的",
+                wpmLevel3: "40-60 WPM: 上級者",
+                wpmLevel4: "60+ WPM: プロフェッショナル",
+                accuracyDesc: "正しく入力した文字の割合を示します。高い正確率を維持することが重要です。",
+                accuracyLevel1: "95%以上: 優秀",
+                accuracyLevel2: "90-95%: 良好",
+                accuracyLevel3: "85-90%: 要改善",
+                accuracyLevel4: "85%未満: 練習が必要",
+                timeDesc: "練習開始からの経過時間を表示します。一時停止中の時間は含まれません。",
+                rankTitle: "🎯 ランク評価",
+                rankDesc: "セッション終了時、あなたのパフォーマンスに応じてランクが付けられます。",
+                rankS: "ランクS: スコア500以上 - 卓越した技術！",
+                rankA: "ランクA: スコア400-499 - 素晴らしい！",
+                rankB: "ランクB: スコア300-399 - 良好です",
+                rankC: "ランクC: スコア200-299 - もう少し！",
+                rankD: "ランクD: スコア200未満 - 練習あるのみ！",
+                scoreFormula: "スコアは WPM × 正確率 × 10 で計算されます。",
+                soundTitle: "🎵 音響機能",
+                pianoDesc: "各キーに音階が割り当てられ、美しいメロディーを奏でます",
+                drumDesc: "リズミカルなドラムサウンドでエネルギッシュに",
+                synthDesc: "電子音楽的なサウンドで未来的な体験",
+                ambientDesc: "落ち着いた音色でリラックスして練習",
+                customizeTitle: "⚙️ カスタマイズ",
+                customizeDesc: "設定画面から以下の項目をカスタマイズできます：",
+                customizeItem1: "難易度: 初級（単語）、中級（短文）、上級（長文）から選択",
+                customizeItem2: "問題数: 5問、10問、20問から選択",
+                customizeItem3: "音源テーマ: お好みの音色を選択",
+                customizeItem4: "音量: 0-100%で調整可能",
+                customizeItem5: "テーマ: ライトモード/ダークモード切り替え",
+                customizeItem6: "言語: 日本語/英語の切り替え",
+                tipsTitle: "💡 上達のコツ",
+                tip1: "正確性を優先: 速度よりもまず正確に入力することを心がけましょう",
+                tip2: "ホームポジション: 基本の指の位置を守りましょう（F・Jキーに人差し指）",
+                tip3: "画面を見る: キーボードではなく画面を見て入力しましょう",
+                tip4: "毎日練習: 短時間でも毎日続けることが上達の秘訣です",
+                tip5: "リラックス: 力を抜いて、音楽を楽しみながら練習しましょう",
+                visualTitle: "🎨 視覚的なフィードバック",
+                visualItem1: "緑色のハイライト: 現在入力すべき文字",
+                visualItem2: "緑色の文字: 正しく入力された文字",
+                visualItem3: "赤色の文字: 間違って入力された文字（押し直しが必要）",
+                visualItem4: "アンダーライン: スペース（空白）を表します",
+                visualItem5: "バーチャルキーボード: 押したキーがリアルタイムで光ります",
+                historyFeatureTitle: "📈 履歴機能",
+                historyFeatureDesc: "過去のスコアを確認して、自分の成長を追跡できます。履歴画面では以下が確認できます：",
+                historyItem1: "日時",
+                historyItem2: "ランク評価",
+                historyItem3: "スコア",
+                historyItem4: "WPM（タイピング速度）",
+                historyItem5: "正確率",
+                historyNote: "※ 最大100件まで保存されます",
+                dataTitle: "💾 データ管理",
+                dataDesc: "あなたの設定と履歴は自動的にブラウザに保存されます。設定画面から以下の操作が可能です：",
+                dataItem1: "設定のリセット: 初期設定に戻します",
+                dataItem2: "データのエクスポート: 設定と履歴をJSONファイルとして保存",
+                dataItem3: "履歴の削除: 個別または全削除が可能",
+                shortcutTitle: "⌨️ キーボードショートカット",
+                shortcutItem1: ": 練習開始（未プレイ時のみ）",
+                shortcutItem2: " + 文字: 大文字入力",
+                shortcutNote: "※ Shift、Ctrl、Altなどの修飾キーはミス判定されません",
+                language: "言語",
+                // カスタム問題
+                customProblems: "カスタム問題",
+                manageProblems: "問題を管理",
+                addProblem: "問題を追加",
+                problemText: "問題文",
+                problemDifficulty: "難易度",
+                cancel: "キャンセル",
+                add: "追加",
+                edit: "編集",
+                save: "保存",
+                customProblemsTitle: "📝 カスタム問題管理",
+                noProblemText: "問題文を入力してください",
+                problemAdded: "問題を追加しました",
+                problemDeleted: "問題を削除しました",
+                problemDeletedAndSourceChanged: "問題を削除しました。カスタム問題がなくなったため、出題元を「既存の問題とカスタム問題」に変更しました。",
+                problemUpdated: "問題を更新しました",
+                confirmDeleteProblem: "この問題を削除しますか?",
+                exportProblems: "問題をエクスポート",
+                importProblems: "問題をインポート",
+                problemsExported: "問題をエクスポートしました",
+                problemsImported: "問題をインポートしました",
+                invalidFile: "無効なファイルです",
+                noCustomProblems: "カスタム問題がありません",
+                // 遊びモード
+                relaxMode: "リラックスモード",
+                relaxModeTitle: "🎵 リラックスモード",
+                relaxModeDesc: "音楽と幾何学模様で心を癒しましょう",
+                startRelax: "開始",
+                stopRelax: "停止",
+                selectMelody: "メロディを選択",
+                melody1: "穏やかな波",
+                melody2: "森の朝",
+                melody3: "星空の夜",
+                melody4: "春の風"
+            },
+            en: {
+                title: "🎹 Musical Typing Trainer",
+                langToggle: "日本語",
+                guide: "Guide",
+                settings: "Settings",
+                history: "History",
+                progress: "Progress",
+                accuracy: "Accuracy",
+                time: "Time",
+                start: "🚀 Start",
+                pause: "⏸️ Pause",
+                resume: "▶️ Resume",
+                reset: "🔄 Reset",
+                startMessage: "Press Start button or SPACE key to begin practice",
+                // Settings
+                settingsTitle: "⚙️ Settings",
+                generalSettings: "General",
+                problemManagement: "Problems",
+                problemManagementDesc: "View default problems and manage your custom problems.",
+                totalProblems: "Total Problems",
+                default: "Default",
+                custom: "Custom",
+                andMore: "and {count} more",
+                difficulty: "Difficulty",
+                beginner: "Beginner",
+                intermediate: "Intermediate",
+                advanced: "Advanced",
+                problemCount: "Problems",
+                problemSource: "Problem Source",
+                defaultProblems: "Default Problems Only",
+                customProblemsOnly: "Custom Problems Only",
+                bothProblems: "Both Default and Custom",
+                problemSourceChanged: "Problem source changed",
+                soundTheme: "Sound Theme",
+                piano: "Piano",
+                drum: "Drum",
+                synth: "Synthesizer",
+                ambient: "Ambient",
+                volume: "Volume",
+                resetSettings: "Reset Settings",
+                exportData: "Export Data",
+                close: "Close",
+                // Results
+                complete: "🎉 Practice Complete!",
+                totalScore: "Total Score",
+                avgWPM: "Average WPM",
+                accuracyRate: "Accuracy",
+                correctTypes: "Correct",
+                missTypes: "Mistakes",
+                elapsedTime: "Time Elapsed",
+                seconds: "sec",
+                retry: "Try Again",
+                pressSpaceToRetry: "Press SPACE to try again",
+                // History
+                historyTitle: "📊 Score History",
+                rank: "Rank",
+                score: "Score",
+                date: "Date",
+                delete: "Delete",
+                deleteAll: "Delete All",
+                noHistory: "No history available",
+                // Messages
+                difficultyChanged: "Difficulty changed",
+                problemCountChanged: "Problem count changed",
+                soundThemeChanged: "Sound theme changed",
+                settingsReset: "Settings reset",
+                dataExported: "Data exported",
+                historyDeleted: "Record deleted",
+                allHistoryDeleted: "All history deleted",
+                confirmReset: "Reset settings to default?",
+                confirmDelete: "Delete this record?",
+                confirmDeleteAll: "Delete all history?",
+                // Guide
+                guideTitle: "📖 Musical Typing Trainer Guide",
+                aboutTitle: "🎹 About This Site",
+                aboutText: "Musical Typing Trainer is an innovative learning tool that adds musical elements to typing practice. With each keystroke producing a sound, you can improve your typing skills while enjoying music.",
+                howToTitle: "🚀 How to Use",
+                howToStep1: "Press the Start button or SPACE key to begin practice",
+                howToStep2: "Type the characters displayed on the screen in order",
+                howToStep3: "Correct input is displayed in green, incorrect in red",
+                howToStep4: "If you make a mistake, you need to press the correct key again",
+                howToStep5: "Results screen appears after completing the set number of problems",
+                statsTitle: "📊 Statistics Explained",
+                progressDesc: "Shows which problem you're currently on. Example: 5/10 = Problem 5 of 10",
+                wpmDesc: "Words Per Minute represents typing speed and is widely used as an indicator.",
+                wpmNote: "※ 5 characters = 1 word",
+                wpmLevel1: "0-20 WPM: Beginner",
+                wpmLevel2: "20-40 WPM: Average",
+                wpmLevel3: "40-60 WPM: Advanced",
+                wpmLevel4: "60+ WPM: Professional",
+                accuracyDesc: "Shows the percentage of correctly typed characters. Maintaining high accuracy is important.",
+                accuracyLevel1: "95%+: Excellent",
+                accuracyLevel2: "90-95%: Good",
+                accuracyLevel3: "85-90%: Needs Improvement",
+                accuracyLevel4: "Below 85%: Practice Needed",
+                timeDesc: "Displays elapsed time since practice started. Paused time is not included.",
+                rankTitle: "🎯 Rank Evaluation",
+                rankDesc: "At the end of a session, you'll receive a rank based on your performance.",
+                rankS: "Rank S: Score 500+ - Exceptional skill!",
+                rankA: "Rank A: Score 400-499 - Excellent!",
+                rankB: "Rank B: Score 300-399 - Good",
+                rankC: "Rank C: Score 200-299 - Almost there!",
+                rankD: "Rank D: Below 200 - Keep practicing!",
+                scoreFormula: "Score is calculated as WPM × Accuracy × 10.",
+                soundTitle: "🎵 Sound Features",
+                pianoDesc: "Each key is assigned a musical note, creating beautiful melodies",
+                drumDesc: "Rhythmic drum sounds for an energetic experience",
+                synthDesc: "Electronic music sounds for a futuristic experience",
+                ambientDesc: "Calm tones for relaxed practice",
+                customizeTitle: "⚙️ Customization",
+                customizeDesc: "You can customize the following from the settings screen:",
+                customizeItem1: "Difficulty: Choose from Beginner (words), Intermediate (phrases), Advanced (sentences)",
+                customizeItem2: "Problems: Choose 5, 10, or 20 problems",
+                customizeItem3: "Sound Theme: Select your preferred sound",
+                customizeItem4: "Volume: Adjustable from 0-100%",
+                customizeItem5: "Theme: Switch between Light/Dark mode",
+                customizeItem6: "Language: Switch between Japanese/English",
+                tipsTitle: "💡 Tips for Improvement",
+                tip1: "Prioritize accuracy: Focus on typing correctly before speed",
+                tip2: "Home position: Keep fingers in the basic position (index fingers on F and J)",
+                tip3: "Look at screen: Type while looking at the screen, not the keyboard",
+                tip4: "Daily practice: Consistent daily practice, even if brief, is key to improvement",
+                tip5: "Relax: Practice while relaxed and enjoy the music",
+                visualTitle: "🎨 Visual Feedback",
+                visualItem1: "Green highlight: Character to be typed next",
+                visualItem2: "Green text: Correctly typed character",
+                visualItem3: "Red text: Incorrectly typed character (needs retyping)",
+                visualItem4: "Underline: Represents space",
+                visualItem5: "Virtual keyboard: Keys light up in real-time when pressed",
+                historyFeatureTitle: "📈 History Feature",
+                historyFeatureDesc: "View past scores to track your progress. The history screen shows:",
+                historyItem1: "Date and time",
+                historyItem2: "Rank evaluation",
+                historyItem3: "Score",
+                historyItem4: "WPM (typing speed)",
+                historyItem5: "Accuracy",
+                historyNote: "※ Up to 100 records are saved",
+                dataTitle: "💾 Data Management",
+                dataDesc: "Your settings and history are automatically saved in the browser. From the settings screen you can:",
+                dataItem1: "Reset Settings: Return to default settings",
+                dataItem2: "Export Data: Save settings and history as a JSON file",
+                dataItem3: "Delete History: Delete individual records or all records",
+                shortcutTitle: "⌨️ Keyboard Shortcuts",
+                shortcutItem1: ": Start practice (when not playing)",
+                shortcutItem2: " + character: Type uppercase",
+                shortcutNote: "※ Modifier keys like Shift, Ctrl, Alt are not counted as mistakes",
+                language: "Language",
+                // Custom Problems
+                customProblems: "Custom Problems",
+                manageProblems: "Manage Problems",
+                addProblem: "Add Problem",
+                problemText: "Problem Text",
+                problemDifficulty: "Difficulty",
+                cancel: "Cancel",
+                add: "Add",
+                edit: "Edit",
+                save: "Save",
+                customProblemsTitle: "📝 Custom Problems Management",
+                noProblemText: "Please enter problem text",
+                problemAdded: "Problem added",
+                problemDeleted: "Problem deleted",
+                problemDeletedAndSourceChanged: "Problem deleted. Since there are no custom problems left, the problem source has been changed to 'Both Default and Custom'.",
+                problemUpdated: "Problem updated",
+                confirmDeleteProblem: "Delete this problem?",
+                exportProblems: "Export Problems",
+                importProblems: "Import Problems",
+                problemsExported: "Problems exported",
+                problemsImported: "Problems imported",
+                invalidFile: "Invalid file",
+                noCustomProblems: "No custom problems",
+                // Relax Mode
+                relaxMode: "Relax Mode",
+                relaxModeTitle: "🎵 Relax Mode",
+                relaxModeDesc: "Heal your mind with music and geometric patterns",
+                startRelax: "Start",
+                stopRelax: "Stop",
+                selectMelody: "Select Melody",
+                melody1: "Gentle Waves",
+                melody2: "Forest Morning",
+                melody3: "Starry Night",
+                melody4: "Spring Breeze"
+            }
+        };
+
+        // 問題データベース
+        const problemDatabase = {
+            beginner: [
+                // 基本単語（動物）
+                'cat', 'dog', 'bird', 'fish', 'bear', 'lion', 'tiger', 'wolf', 'deer', 'duck',
+                'cow', 'pig', 'sheep', 'goat', 'horse', 'mouse', 'rabbit', 'snake', 'frog', 'bee',
+                // 基本単語（自然）
+                'sun', 'moon', 'star', 'sky', 'rain', 'snow', 'wind', 'cloud', 'tree', 'leaf',
+                'flower', 'grass', 'river', 'lake', 'sea', 'hill', 'rock', 'sand', 'fire', 'water',
+                // 基本単語（日常）
+                'hand', 'head', 'face', 'eye', 'ear', 'nose', 'mouth', 'foot', 'arm', 'leg',
+                'book', 'pen', 'desk', 'chair', 'door', 'window', 'wall', 'floor', 'roof', 'key',
+                'food', 'milk', 'bread', 'rice', 'meat', 'egg', 'apple', 'tea', 'cup', 'plate',
+                // 基本単語（時間・場所）
+                'time', 'day', 'night', 'week', 'year', 'hour', 'home', 'room', 'town', 'city',
+                // 基本単語（動作・状態）
+                'run', 'walk', 'jump', 'swim', 'fly', 'read', 'write', 'sing', 'dance', 'sleep',
+                'work', 'play', 'learn', 'teach', 'help', 'love', 'like', 'want', 'need', 'have',
+                // 基本単語（形容詞）
+                'big', 'small', 'long', 'short', 'hot', 'cold', 'new', 'old', 'good', 'bad',
+                'fast', 'slow', 'high', 'low', 'hard', 'soft', 'clean', 'dirty', 'happy', 'sad'
+            ],
+            intermediate: [
+                // 短いフレーズ
+                'hello world', 'good morning', 'good night', 'thank you', 'nice to meet you',
+                'see you later', 'take care', 'have fun', 'good luck', 'well done',
+                // タイピング・学習関連
+                'typing practice', 'keyboard skills', 'touch typing', 'practice makes perfect',
+                'learn something new', 'improve your skills', 'keep practicing', 'stay focused',
+                // テクノロジー関連
+                'computer science', 'web development', 'mobile application', 'user interface',
+                'artificial intelligence', 'machine learning', 'data structure', 'algorithm design',
+                'software engineering', 'programming language', 'database management', 'cloud computing',
+                'cyber security', 'network protocol', 'operating system', 'version control',
+                // ビジネス・仕事関連
+                'team collaboration', 'project management', 'time management', 'problem solving',
+                'creative thinking', 'critical thinking', 'effective communication', 'leadership skills',
+                'customer service', 'sales strategy', 'market research', 'business plan',
+                // 科学・教育関連
+                'scientific method', 'research paper', 'case study', 'data analysis',
+                'environmental protection', 'sustainable development', 'renewable energy', 'climate change',
+                'space exploration', 'medical research', 'genetic engineering', 'quantum physics',
+                // 日常生活
+                'healthy lifestyle', 'balanced diet', 'regular exercise', 'mental health',
+                'social media', 'online shopping', 'video streaming', 'digital payment',
+                'travel abroad', 'cultural exchange', 'language learning', 'hobby activities'
+            ],
+            advanced: [
+                // 名言・格言
+                'The quick brown fox jumps over the lazy dog',
+                'Practice makes perfect in all endeavors of life',
+                'Technology is best when it brings people together',
+                'Innovation distinguishes between a leader and a follower',
+                'The only way to do great work is to love what you do',
+                'Success is not final, failure is not fatal, it is the courage to continue that counts',
+                'The future belongs to those who believe in the beauty of their dreams',
+                'Education is the most powerful weapon which you can use to change the world',
+                // テクノロジー・プログラミング
+                'Writing clean and maintainable code is essential for long-term project success',
+                'Understanding data structures and algorithms is fundamental to computer science',
+                'Continuous integration and deployment streamline the development workflow',
+                'Object-oriented programming promotes code reusability and modularity',
+                'Responsive web design ensures optimal user experience across all devices',
+                'Microservices architecture enables scalable and flexible application development',
+                'Version control systems like Git are crucial for collaborative software development',
+                'Automated testing helps maintain code quality and prevents regression bugs',
+                // ビジネス・経営
+                'Effective communication and collaboration are key to successful team management',
+                'Understanding customer needs is essential for developing successful products',
+                'Data-driven decision making leads to more accurate and effective business strategies',
+                'Building a strong company culture attracts and retains talented employees',
+                'Adapting to market changes quickly is crucial for business sustainability',
+                'Strategic planning and execution determine long-term organizational success',
+                // 科学・学術
+                'Scientific research requires rigorous methodology and careful data analysis',
+                'Climate change poses significant challenges that require global cooperation',
+                'Artificial intelligence is transforming industries and reshaping our daily lives',
+                'Renewable energy sources are becoming increasingly important for environmental sustainability',
+                'Space exploration continues to push the boundaries of human knowledge and capability',
+                'Medical advances are extending human lifespan and improving quality of life',
+                // 哲学・人生
+                'The journey of a thousand miles begins with a single step forward',
+                'Learning from mistakes and failures is an important part of personal growth',
+                'Maintaining a positive attitude in difficult times requires strength and resilience',
+                'Curiosity and continuous learning are essential for personal and professional development',
+                'Building meaningful relationships enriches our lives and provides support during challenges',
+                'Finding balance between work and personal life contributes to overall happiness and well-being'
+            ],
+            custom: []
+        };
+
+        // メインアプリケーション
+        class TypingTrainerApp {
+            constructor() {
+                this.audioSystem = new AudioSystem();
+                this.currentText = '';
+                this.currentIndex = 0;
+                this.isPlaying = false;
+                this.isPaused = false;
+                this.startTime = null;
+                this.pauseTime = null;
+                this.totalPauseTime = 0;
+                this.correctCount = 0;
+                this.incorrectCount = 0;
+                this.problemCount = 0;
+                this.currentProblem = 0;
+                this.difficulty = 'beginner';
+                this.problemsPerSession = 10;
+                this.problemSource = 'both'; // 'default', 'custom', 'both'
+                this.theme = 'light';
+                this.language = 'en';
+                this.history = [];
+                this.customProblems = { beginner: [], intermediate: [], advanced: [] };
+                this.loadSettings();
+                this.loadHistory();
+                this.loadCustomProblems();
+                this.setupEventListeners();
+                this.updateLanguage();
+            }
+
+            setupEventListeners() {
+                document.addEventListener('keydown', (e) => this.handleKeyPress(e));
+                document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+            }
+
+            handleKeyPress(e) {
+                // スペースキーでスタート（ゲーム未開始時）
+                if (!this.isPlaying && e.key === ' ') {
+                    e.preventDefault();
+                    this.startPractice();
+                    return;
+                }
+                
+                if (!this.isPlaying || this.isPaused) return;
+                
+                // スペースキーのスクロールを常に防止
+                if (e.key === ' ') {
+                    e.preventDefault();
+                }
+                
+                const key = e.key;
+                
+                // 修飾キー（Shift, Ctrl, Alt, Meta等）は無視
+                const modifierKeys = ['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab', 'Escape', 'Enter', 'Backspace'];
+                if (modifierKeys.includes(key)) {
+                    return;
+                }
+                
+                // 音を再生
+                this.audioSystem.playSound(key);
+                
+                // キーボードビジュアルを更新
+                this.highlightKey(key, true);
+                
+                // タイピングチェック
+                const expectedChar = this.currentText[this.currentIndex];
+                
+                if (key === expectedChar) {
+                    this.correctCount++;
+                    this.markCharacter(this.currentIndex, 'correct');
+                    this.currentIndex++;
+                    
+                    if (this.currentIndex >= this.currentText.length) {
+                        this.nextProblem();
+                    } else {
+                        this.updateCurrentCharacter();
+                    }
+                } else {
+                    // ミスした場合は赤字表示のみで、押し直しが必要
+                    this.incorrectCount++;
+                    this.markCharacter(this.currentIndex, 'incorrect');
+                    
+                    // 押されたキーをハイライト（エラー表示）
+                    this.highlightKey(key, true, true);
+                    
+                    // 少し待ってから赤字を解除して再度currentに戻す
+                    setTimeout(() => {
+                        this.markCharacter(this.currentIndex, 'reset');
+                        this.updateCurrentCharacter();
+                        this.highlightKey(key, false, true);
+                    }, 300);
+                }
+                
+                this.updateStats();
+            }
+
+            handleKeyUp(e) {
+                this.highlightKey(e.key, false);
+            }
+
+            highlightKey(key, active, error = false) {
+                const keyElement = document.querySelector(`[data-key="${key.toLowerCase()}"]`);
+                // スペースキーの場合は特別に処理
+                const spaceElement = document.querySelector(`[data-key=" "]`);
+                const targetElement = (key === ' ' || key.toLowerCase() === ' ') ? spaceElement : keyElement;
+                
+                if (targetElement) {
+                    if (active) {
+                        targetElement.classList.add(error ? 'error' : 'active');
+                    } else {
+                        targetElement.classList.remove('active', 'error');
+                    }
+                }
+            }
+
+            startPractice() {
+                this.isPlaying = true;
+                this.isPaused = false;
+                this.currentProblem = 0;
+                this.correctCount = 0;
+                this.incorrectCount = 0;
+                this.startTime = Date.now();
+                this.totalPauseTime = 0;
+                
+                this.loadNextProblem();
+                this.updateUI();
+                this.updateStats();
+                
+                document.getElementById('startBtn').classList.add('hidden');
+                document.getElementById('pauseBtn').classList.remove('hidden');
+                document.getElementById('resetBtn').classList.remove('hidden');
+            }
+
+            pausePractice() {
+                this.isPaused = true;
+                this.pauseTime = Date.now();
+                document.getElementById('pauseBtn').classList.add('hidden');
+                document.getElementById('resumeBtn').classList.remove('hidden');
+            }
+
+            resumePractice() {
+                this.isPaused = false;
+                this.totalPauseTime += Date.now() - this.pauseTime;
+                document.getElementById('pauseBtn').classList.remove('hidden');
+                document.getElementById('resumeBtn').classList.add('hidden');
+            }
+
+            resetPractice() {
+                this.isPlaying = false;
+                this.isPaused = false;
+                this.currentIndex = 0;
+                this.currentProblem = 0;
+                this.correctCount = 0;
+                this.incorrectCount = 0;
+                this.startTime = null;
+                this.totalPauseTime = 0;
+                
+                document.getElementById('textDisplay').innerHTML = this.t('startMessage');
+                document.getElementById('startBtn').classList.remove('hidden');
+                document.getElementById('startBtn').innerHTML = this.t('start');
+                document.getElementById('pauseBtn').classList.add('hidden');
+                document.getElementById('resumeBtn').classList.add('hidden');
+                document.getElementById('resetBtn').classList.add('hidden');
+                
+                this.updateStats();
+            }
+
+            loadNextProblem() {
+                const defaultProblems = problemDatabase[this.difficulty];
+                const customProblems = this.customProblems[this.difficulty] || [];
+                
+                let allProblems = [];
+                
+                // problemSourceの設定に応じて問題を選択
+                if (this.problemSource === 'default') {
+                    allProblems = [...defaultProblems];
+                } else if (this.problemSource === 'custom') {
+                    allProblems = [...customProblems];
+                } else { // 'both'
+                    allProblems = [...defaultProblems, ...customProblems];
+                }
+                
+                if (allProblems.length === 0) {
+                    this.currentText = 'No problems available';
+                } else {
+                    this.currentText = allProblems[Math.floor(Math.random() * allProblems.length)];
+                }
+                
+                this.currentIndex = 0;
+                this.displayText();
+            }
+
+            nextProblem() {
+                this.currentProblem++;
+                
+                if (this.currentProblem >= this.problemsPerSession) {
+                    this.finishSession();
+                } else {
+                    this.loadNextProblem();
+                    this.updateStats();
+                }
+            }
+
+            displayText() {
+                const display = document.getElementById('textDisplay');
+                display.innerHTML = '';
+                
+                for (let i = 0; i < this.currentText.length; i++) {
+                    const span = document.createElement('span');
+                    span.className = 'char';
+                    
+                    // スペース文字の場合は特別なクラスを追加
+                    if (this.currentText[i] === ' ') {
+                        span.classList.add('space');
+                        span.innerHTML = '&nbsp;'; // 空白を表示
+                    } else {
+                        span.textContent = this.currentText[i];
+                    }
+                    
+                    if (i === this.currentIndex) {
+                        span.classList.add('current');
+                    }
+                    
+                    display.appendChild(span);
+                }
+            }
+
+            updateCurrentCharacter() {
+                const chars = document.querySelectorAll('.char');
+                chars.forEach((char, index) => {
+                    char.classList.remove('current');
+                    if (index === this.currentIndex) {
+                        char.classList.add('current');
+                    }
+                });
+            }
+
+            markCharacter(index, status) {
+                const chars = document.querySelectorAll('.char');
+                if (chars[index]) {
+                    if (status === 'reset') {
+                        // リセット：全てのステータスクラスを削除
+                        chars[index].classList.remove('current', 'correct', 'incorrect');
+                    } else {
+                        chars[index].classList.remove('current');
+                        chars[index].classList.add(status);
+                    }
+                }
+            }
+
+            updateStats() {
+                // 進捗
+                document.getElementById('progressStat').textContent = 
+                    `${this.currentProblem}/${this.problemsPerSession}`;
+                
+                const progress = (this.currentProblem / this.problemsPerSession) * 100;
+                document.getElementById('progressFill').style.width = `${progress}%`;
+                
+                // WPM計算
+                let wpm = 0;
+                if (this.startTime && this.isPlaying) {
+                    const elapsedMinutes = (Date.now() - this.startTime - this.totalPauseTime) / 60000;
+                    const words = this.correctCount / 5; // 5文字 = 1単語
+                    wpm = Math.round(words / elapsedMinutes) || 0;
+                }
+                document.getElementById('wpmStat').textContent = wpm;
+                
+                // 正確率
+                const total = this.correctCount + this.incorrectCount;
+                const accuracy = total > 0 ? Math.round((this.correctCount / total) * 100) : 100;
+                document.getElementById('accuracyStat').textContent = `${accuracy}%`;
+                
+                // 時間
+                let timeText = '0:00';
+                if (this.startTime && this.isPlaying) {
+                    const elapsed = Math.floor((Date.now() - this.startTime - this.totalPauseTime) / 1000);
+                    const minutes = Math.floor(elapsed / 60);
+                    const seconds = elapsed % 60;
+                    timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                }
+                document.getElementById('timeStat').textContent = timeText;
+            }
+
+            finishSession() {
+                this.isPlaying = false;
+                
+                const totalTime = (Date.now() - this.startTime - this.totalPauseTime) / 1000;
+                const total = this.correctCount + this.incorrectCount;
+                const accuracy = total > 0 ? (this.correctCount / total) * 100 : 100;
+                const wpm = Math.round((this.correctCount / 5) / (totalTime / 60));
+                
+                const score = this.calculateScore(wpm, accuracy);
+                const rank = this.getRank(score);
+                
+                const result = {
+                    date: new Date().toISOString(),
+                    score: score,
+                    rank: rank,
+                    wpm: wpm,
+                    accuracy: accuracy.toFixed(1),
+                    correct: this.correctCount,
+                    incorrect: this.incorrectCount,
+                    time: totalTime.toFixed(1),
+                    difficulty: this.difficulty
+                };
+                
+                this.saveResult(result);
+                this.showResults(result);
+            }
+
+            calculateScore(wpm, accuracy) {
+                return Math.round(wpm * (accuracy / 100) * 10);
+            }
+
+            getRank(score) {
+                if (score >= 500) return 'S';
+                if (score >= 400) return 'A';
+                if (score >= 300) return 'B';
+                if (score >= 200) return 'C';
+                return 'D';
+            }
+
+            showResults(result) {
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content results-screen">
+                        <h2>${this.t('complete')}</h2>
+                        <div class="rank ${result.rank}">${result.rank}</div>
+                        <div class="results-grid">
+                            <div class="result-item">
+                                <div class="stat-label">${this.t('totalScore')}</div>
+                                <div class="stat-value">${result.score}</div>
+                            </div>
+                            <div class="result-item">
+                                <div class="stat-label">${this.t('avgWPM')}</div>
+                                <div class="stat-value">${result.wpm}</div>
+                            </div>
+                            <div class="result-item">
+                                <div class="stat-label">${this.t('accuracyRate')}</div>
+                                <div class="stat-value">${result.accuracy}%</div>
+                            </div>
+                            <div class="result-item">
+                                <div class="stat-label">${this.t('correctTypes')}</div>
+                                <div class="stat-value">${result.correct}</div>
+                            </div>
+                            <div class="result-item">
+                                <div class="stat-label">${this.t('missTypes')}</div>
+                                <div class="stat-value">${result.incorrect}</div>
+                            </div>
+                            <div class="result-item">
+                                <div class="stat-label">${this.t('elapsedTime')}</div>
+                                <div class="stat-value">${result.time}${this.t('seconds')}</div>
+                            </div>
+                        </div>
+                        <button onclick="app.resetPractice(); app.closeModal(this);">${this.t('retry')}</button>
+                        <p style="text-align: center; opacity: 0.6; margin-top: 15px; font-size: 14px;">
+                            ${this.t('pressSpaceToRetry')}
+                        </p>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                
+                // モーダル外をクリックしたらリセットして閉じる
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        this.resetPractice();
+                        this.closeModal(modal);
+                    }
+                });
+                
+                // スペースキーでリセット
+                const spaceKeyHandler = (e) => {
+                    if (e.key === ' ' || e.key === 'Spacebar') {
+                        e.preventDefault();
+                        this.resetPractice();
+                        this.closeModal(modal);
+                        document.removeEventListener('keydown', spaceKeyHandler);
+                    }
+                };
+                document.addEventListener('keydown', spaceKeyHandler);
+                
+                // モーダルが閉じられたらイベントリスナーを削除
+                const observer = new MutationObserver((mutations) => {
+                    if (!document.body.contains(modal)) {
+                        document.removeEventListener('keydown', spaceKeyHandler);
+                        observer.disconnect();
+                    }
+                });
+                observer.observe(document.body, { childList: true });
+            }
+
+            closeModal(element) {
+                const modal = element.closest('.modal');
+                if (modal) {
+                    modal.remove();
+                }
+            }
+
+            showCustomProblems() {
+                // 各難易度のタブコンテンツを生成
+                const tabContents = ['beginner', 'intermediate', 'advanced'].map((difficulty, index) => {
+                    const defaultProblems = problemDatabase[difficulty] || [];
+                    const customProblems = this.customProblems[difficulty] || [];
+                    
+                    // 既存の問題のHTML
+                    const defaultProblemsHTML = defaultProblems.length > 0 ? `
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="color: var(--accent); margin-bottom: 10px; font-size: 16px;">📚 既存の問題 (${defaultProblems.length}件)</h4>
+                            <div style="max-height: 300px; overflow-y: auto; padding: 10px; background: var(--bg-primary); border-radius: 5px; border: 1px solid var(--border);">
+                                ${defaultProblems.map((problem, idx) => `
+                                    <div style="padding: 8px; margin-bottom: 5px; background: var(--bg-secondary); border-radius: 3px; font-size: 14px;">
+                                        ${idx + 1}. ${this.escapeHtml(problem)}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : '';
+                    
+                    // カスタム問題のHTML
+                    const customProblemsHTML = customProblems.map((problem, idx) => `
+                        <div class="history-item" style="display: block; margin-bottom: 10px;">
+                            <div style="margin-bottom: 10px;">
+                                <strong>${this.escapeHtml(problem)}</strong>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="secondary" data-difficulty="${difficulty}" data-index="${idx}" onclick="app.editProblemByEvent(event)">${this.t('edit')}</button>
+                                <button class="danger" data-difficulty="${difficulty}" data-index="${idx}" onclick="app.deleteProblemByEvent(event)">${this.t('delete')}</button>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    const customSection = `
+                        <div style="margin-top: 20px;">
+                            <h4 style="color: var(--accent); margin-bottom: 10px; font-size: 16px;">✏️ カスタム問題 (${customProblems.length}件)</h4>
+                            ${customProblems.length > 0 ? customProblemsHTML : `<p style="text-align: center; padding: 20px; opacity: 0.6;">${this.t('noCustomProblems')}</p>`}
+                            <button style="margin-top: 10px; width: 100%;" data-difficulty="${difficulty}" onclick="app.showAddProblemDialogByEvent(event)">➕ ${this.t('addProblem')}</button>
+                        </div>
+                    `;
+                    
+                    return `
+                        <div class="tab-content ${index === 0 ? 'active' : ''}" id="tab-${difficulty}">
+                            <div style="padding: 10px 0;">
+                                <div style="margin-bottom: 15px; padding: 10px; background: var(--bg-secondary); border-radius: 5px;">
+                                    <strong>合計: ${defaultProblems.length + customProblems.length}件</strong>
+                                    <span style="opacity: 0.7; margin-left: 10px;">(既存: ${defaultProblems.length}件 / カスタム: ${customProblems.length}件)</span>
+                                </div>
+                                ${defaultProblemsHTML}
+                                ${customSection}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 800px; max-height: 85vh;">
+                        <h2>${this.t('customProblemsTitle')}</h2>
+                        
+                        <div class="tabs">
+                            <button class="tab active" onclick="app.switchTab('beginner')">${this.t('beginner')}</button>
+                            <button class="tab" onclick="app.switchTab('intermediate')">${this.t('intermediate')}</button>
+                            <button class="tab" onclick="app.switchTab('advanced')">${this.t('advanced')}</button>
+                        </div>
+                        
+                        <div style="max-height: 50vh; overflow-y: auto;">
+                            ${tabContents}
+                        </div>
+                        
+                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; padding-top: 15px; border-top: 2px solid var(--border);">
+                            <button onclick="app.exportCustomProblems()">📤 ${this.t('exportProblems')}</button>
+                            <button onclick="app.importCustomProblems()">📥 ${this.t('importProblems')}</button>
+                            <button class="secondary" onclick="app.closeModal(this)">${this.t('close')}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        this.closeModal(modal);
+                    }
+                });
+            }
+
+            switchTab(difficulty) {
+                // すべてのタブとコンテンツの active クラスを削除
+                document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                
+                // 選択されたタブとコンテンツに active クラスを追加
+                event.target.classList.add('active');
+                document.getElementById(`tab-${difficulty}`).classList.add('active');
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            showAddProblemDialogByEvent(event) {
+                const difficulty = event.target.dataset.difficulty;
+                this.showAddProblemDialog(difficulty);
+            }
+
+            editProblemByEvent(event) {
+                const difficulty = event.target.dataset.difficulty;
+                const index = parseInt(event.target.dataset.index);
+                this.editProblem(difficulty, index);
+            }
+
+            deleteProblemByEvent(event) {
+                const difficulty = event.target.dataset.difficulty;
+                const index = parseInt(event.target.dataset.index);
+                this.deleteProblem(difficulty, index);
+            }
+
+            showAddProblemDialog(difficulty) {
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 400px;">
+                        <h2>${this.t('addProblem')}</h2>
+                        <div style="margin: 20px 0;">
+                            <label style="display: block; margin-bottom: 10px; font-weight: bold;">${this.t('problemText')}</label>
+                            <input type="text" id="problemInput" style="width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 5px; background: var(--bg-primary); color: var(--text-primary); font-size: 14px;" placeholder="${this.t('problemText')}">
+                        </div>
+                        <div style="display: flex; gap: 10px; justify-content: center;">
+                            <button data-difficulty="${difficulty}" onclick="app.addCustomProblemByEvent(event)">${this.t('add')}</button>
+                            <button class="secondary" onclick="app.closeModal(this)">${this.t('cancel')}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        this.closeModal(modal);
+                    }
+                });
+                setTimeout(() => document.getElementById('problemInput').focus(), 100);
+            }
+
+            addCustomProblemByEvent(event) {
+                const difficulty = event.target.dataset.difficulty;
+                this.addCustomProblem(difficulty);
+            }
+
+            editProblem(difficulty, index) {
+                const problem = this.customProblems[difficulty][index];
+                const escapedProblem = problem.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 400px;">
+                        <h2>${this.t('edit')}</h2>
+                        <div style="margin: 20px 0;">
+                            <label style="display: block; margin-bottom: 10px; font-weight: bold;">${this.t('problemText')}</label>
+                            <input type="text" id="problemInput" value="${escapedProblem}" style="width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 5px; background: var(--bg-primary); color: var(--text-primary); font-size: 14px;">
+                        </div>
+                        <div style="display: flex; gap: 10px; justify-content: center;">
+                            <button data-difficulty="${difficulty}" data-index="${index}" onclick="app.updateCustomProblemByEvent(event)">${this.t('save')}</button>
+                            <button class="secondary" onclick="app.closeModal(this)">${this.t('cancel')}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        this.closeModal(modal);
+                    }
+                });
+                setTimeout(() => document.getElementById('problemInput').focus(), 100);
+            }
+
+            updateCustomProblemByEvent(event) {
+                const difficulty = event.target.dataset.difficulty;
+                const index = parseInt(event.target.dataset.index);
+                this.updateCustomProblem(difficulty, index);
+            }
+
+            addCustomProblem(difficulty) {
+                const input = document.getElementById('problemInput');
+                const text = input.value.trim();
+                
+                if (!text) {
+                    alert(this.t('noProblemText'));
+                    return;
+                }
+                
+                if (!this.customProblems[difficulty]) {
+                    this.customProblems[difficulty] = [];
+                }
+                
+                this.customProblems[difficulty].push(text);
+                this.saveCustomProblems();
+                this.showMessage(this.t('problemAdded'));
+                
+                // モーダルを閉じて設定画面を再表示
+                const modals = document.querySelectorAll('.modal');
+                modals.forEach(modal => modal.remove());
+                this.showSettings();
+                // 問題管理タブを開く
+                setTimeout(() => {
+                    const problemTab = document.querySelector('.tabs button:nth-child(2)');
+                    if (problemTab) problemTab.click();
+                    // 該当する難易度タブを開く
+                    setTimeout(() => {
+                        const difficultyTabs = document.querySelectorAll('#settings-tab-problems .tabs button');
+                        const difficultyIndex = ['beginner', 'intermediate', 'advanced'].indexOf(difficulty);
+                        if (difficultyTabs[difficultyIndex]) difficultyTabs[difficultyIndex].click();
+                    }, 50);
+                }, 50);
+            }
+
+            updateCustomProblem(difficulty, index) {
+                const input = document.getElementById('problemInput');
+                const text = input.value.trim();
+                
+                if (!text) {
+                    alert(this.t('noProblemText'));
+                    return;
+                }
+                
+                this.customProblems[difficulty][index] = text;
+                this.saveCustomProblems();
+                this.showMessage(this.t('problemUpdated'));
+                
+                // モーダルを閉じて設定画面を再表示
+                const modals = document.querySelectorAll('.modal');
+                modals.forEach(modal => modal.remove());
+                this.showSettings();
+                // 問題管理タブを開く
+                setTimeout(() => {
+                    const problemTab = document.querySelector('.tabs button:nth-child(2)');
+                    if (problemTab) problemTab.click();
+                    // 該当する難易度タブを開く
+                    setTimeout(() => {
+                        const difficultyTabs = document.querySelectorAll('#settings-tab-problems .tabs button');
+                        const difficultyIndex = ['beginner', 'intermediate', 'advanced'].indexOf(difficulty);
+                        if (difficultyTabs[difficultyIndex]) difficultyTabs[difficultyIndex].click();
+                    }, 50);
+                }, 50);
+            }
+
+            deleteProblem(difficulty, index) {
+                if (confirm(this.t('confirmDeleteProblem'))) {
+                    this.customProblems[difficulty].splice(index, 1);
+                    this.saveCustomProblems();
+                    
+                    // カスタム問題がすべてなくなった場合、設定を変更
+                    const hasCustomProblems = 
+                        (this.customProblems.beginner && this.customProblems.beginner.length > 0) ||
+                        (this.customProblems.intermediate && this.customProblems.intermediate.length > 0) ||
+                        (this.customProblems.advanced && this.customProblems.advanced.length > 0);
+                    
+                    if (!hasCustomProblems && this.problemSource === 'custom') {
+                        this.problemSource = 'both';
+                        this.saveSettings();
+                        this.showMessage(this.t('problemDeletedAndSourceChanged'));
+                    } else {
+                        this.showMessage(this.t('problemDeleted'));
+                    }
+                    
+                    // モーダルを閉じて設定画面を再表示
+                    const modals = document.querySelectorAll('.modal');
+                    modals.forEach(modal => modal.remove());
+                    this.showSettings();
+                    // 問題管理タブを開く
+                    setTimeout(() => {
+                        const problemTab = document.querySelector('.tabs button:nth-child(2)');
+                        if (problemTab) problemTab.click();
+                        // 該当する難易度タブを開く
+                        setTimeout(() => {
+                            const difficultyTabs = document.querySelectorAll('#settings-tab-problems .tabs button');
+                            const difficultyIndex = ['beginner', 'intermediate', 'advanced'].indexOf(difficulty);
+                            if (difficultyTabs[difficultyIndex]) difficultyTabs[difficultyIndex].click();
+                        }, 50);
+                    }, 50);
+                }
+            }
+
+            exportCustomProblems() {
+                const data = {
+                    version: '1.0',
+                    problems: this.customProblems,
+                    exportedAt: new Date().toISOString()
+                };
+                
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `typing-problems-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                this.showMessage(this.t('problemsExported'));
+            }
+
+            importCustomProblems() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const data = JSON.parse(event.target.result);
+                            
+                            if (data.problems) {
+                                // マージ（既存の問題を保持しつつ新しい問題を追加）
+                                ['beginner', 'intermediate', 'advanced'].forEach(difficulty => {
+                                    if (data.problems[difficulty]) {
+                                        if (!this.customProblems[difficulty]) {
+                                            this.customProblems[difficulty] = [];
+                                        }
+                                        // 重複を避けるため
+                                        data.problems[difficulty].forEach(problem => {
+                                            if (!this.customProblems[difficulty].includes(problem)) {
+                                                this.customProblems[difficulty].push(problem);
+                                            }
+                                        });
+                                    }
+                                });
+                                
+                                this.saveCustomProblems();
+                                this.showMessage(this.t('problemsImported'));
+                                
+                                // モーダルを閉じて再表示
+                                const modals = document.querySelectorAll('.modal');
+                                modals.forEach(modal => modal.remove());
+                                this.showCustomProblems();
+                            } else {
+                                alert(this.t('invalidFile'));
+                            }
+                        } catch (error) {
+                            alert(this.t('invalidFile'));
+                        }
+                    };
+                    reader.readAsText(file);
+                };
+                input.click();
+            }
+
+            saveCustomProblems() {
+                localStorage.setItem('typingTrainerCustomProblems', JSON.stringify(this.customProblems));
+            }
+
+            loadCustomProblems() {
+                const saved = localStorage.getItem('typingTrainerCustomProblems');
+                if (saved) {
+                    try {
+                        this.customProblems = JSON.parse(saved);
+                    } catch (error) {
+                        this.customProblems = { beginner: [], intermediate: [], advanced: [] };
+                    }
+                }
+            }
+
+            // リラックスモード
+            showRelaxMode() {
+                // トグル機能：既にリラックスモードならオフにする
+                if (this.isRelaxMode) {
+                    this.exitRelaxMode();
+                    return;
+                }
+                
+                // 通常モードが進行中の場合は中断
+                if (this.isPlaying) {
+                    this.resetPractice();
+                }
+                
+                // リラックスモードに切り替え
+                this.isRelaxMode = true;
+                document.body.classList.add('relax-mode');
+                
+                // スコア表示を非表示（CSSとJavaScript両方で確実に）
+                const statsBar = document.getElementById('statsBar');
+                if (statsBar) {
+                    statsBar.style.display = 'none';
+                    statsBar.classList.add('hidden');
+                }
+                
+                // プログレスバーを非表示
+                const progressBar = document.querySelector('.progress-bar');
+                if (progressBar) {
+                    progressBar.style.display = 'none';
+                }
+                
+                // 一時停止・リセットボタンを非表示
+                const pauseBtn = document.getElementById('pauseBtn');
+                const resumeBtn = document.getElementById('resumeBtn');
+                const resetBtn = document.getElementById('resetBtn');
+                const startBtn = document.getElementById('startBtn');
+                if (pauseBtn) pauseBtn.style.display = 'none';
+                if (resumeBtn) resumeBtn.style.display = 'none';
+                if (resetBtn) resetBtn.style.display = 'none';
+                if (startBtn) startBtn.style.display = 'none';
+                
+                // Canvas追加（タイピングエリア内に配置）
+                const typingArea = document.getElementById('typingArea');
+                typingArea.style.position = 'relative';
+                
+                // 既存のキャンバスを削除
+                const existingCanvas = document.getElementById('relaxCanvas');
+                if (existingCanvas) {
+                    existingCanvas.remove();
+                }
+                
+                const canvas = document.createElement('canvas');
+                canvas.id = 'relaxCanvas';
+                canvas.className = 'relax-canvas';
+                canvas.style.position = 'absolute';
+                canvas.style.top = '0';
+                canvas.style.left = '0';
+                canvas.style.width = '100%';
+                canvas.style.height = '100%';
+                canvas.style.pointerEvents = 'none';
+                canvas.style.zIndex = '1';
+                typingArea.insertBefore(canvas, typingArea.firstChild);
+                
+                // 少し待ってからキャンバスサイズを設定（レイアウトが確定してから）
+                setTimeout(() => {
+                    canvas.width = typingArea.offsetWidth;
+                    canvas.height = typingArea.offsetHeight;
+                    console.log('Canvas size:', canvas.width, 'x', canvas.height);
+                }, 10);
+                
+                this.relaxCanvas = canvas;
+                this.relaxCtx = canvas.getContext('2d');
+                
+                // グラフィックシステム
+                this.graphics = [];
+                
+                // 使用可能なキーリスト（a-zまで）
+                this.relaxKeys = 'abcdefghijklmnopqrstuvwxyz';
+                
+                // UI更新
+                this.updateRelaxUI();
+                
+                // アニメーションループ開始
+                this.animateRelax();
+                
+                // リサイズ対応
+                this.resizeHandler = () => {
+                    if (this.isRelaxMode && this.relaxCanvas) {
+                        const typingArea = document.getElementById('typingArea');
+                        this.relaxCanvas.width = typingArea.offsetWidth;
+                        this.relaxCanvas.height = typingArea.offsetHeight;
+                    }
+                };
+                window.addEventListener('resize', this.resizeHandler);
+                
+                // 遊びモードボタンのスタイルを変更
+                const relaxBtn = document.getElementById('relaxBtn');
+                if (relaxBtn && relaxBtn.parentElement) {
+                    relaxBtn.parentElement.style.background = '#FF6B6B';
+                }
+            }
+
+            updateRelaxUI() {
+                const textDisplay = document.getElementById('textDisplay');
+                
+                textDisplay.innerHTML = `
+                    <div class="relax-text" style="position: relative; z-index: 2;">${this.t('relaxModeDesc')}</div>
+                `;
+            }
+
+            handleKeyPress(e) {
+                // リラックスモード時の処理
+                if (this.isRelaxMode) {
+                    const key = e.key.toLowerCase();
+                    
+                    // 修飾キーは無視
+                    const modifierKeys = ['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab', 'Escape', 'Enter', 'Backspace'];
+                    if (modifierKeys.includes(e.key)) {
+                        return;
+                    }
+                    
+                    // a-zのキーのみ処理
+                    if (/^[a-z]$/.test(key)) {
+                        // 音を再生
+                        this.audioSystem.playSound(key);
+                        
+                        // グラフィック生成
+                        this.createGraphic(key);
+                        
+                        // キーボードハイライト
+                        this.highlightKey(key, true);
+                        setTimeout(() => this.highlightKey(key, false), 200);
+                    }
+                    return;
+                }
+                
+                // 通常モードの処理
+                // スペースキーでスタート（ゲーム未開始時）
+                if (!this.isPlaying && e.key === ' ') {
+                    e.preventDefault();
+                    this.startPractice();
+                    return;
+                }
+                
+                if (!this.isPlaying || this.isPaused) return;
+                
+                // スペースキーのスクロールを常に防止
+                if (e.key === ' ') {
+                    e.preventDefault();
+                }
+                
+                const key = e.key;
+                
+                // 修飾キー（Shift, Ctrl, Alt, Meta等）は無視
+                const modifierKeys = ['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab', 'Escape', 'Enter', 'Backspace'];
+                if (modifierKeys.includes(key)) {
+                    return;
+                }
+                
+                // 音を再生
+                this.audioSystem.playSound(key);
+                
+                // キーボードビジュアルを更新
+                this.highlightKey(key, true);
+                
+                // タイピングチェック
+                const expectedChar = this.currentText[this.currentIndex];
+                
+                if (key === expectedChar) {
+                    this.correctCount++;
+                    this.markCharacter(this.currentIndex, 'correct');
+                    this.currentIndex++;
+                    
+                    if (this.currentIndex >= this.currentText.length) {
+                        this.nextProblem();
+                    } else {
+                        this.updateCurrentCharacter();
+                    }
+                } else {
+                    // ミスした場合は赤字表示のみで、押し直しが必要
+                    this.incorrectCount++;
+                    this.markCharacter(this.currentIndex, 'incorrect');
+                    
+                    // 押されたキーをハイライト（エラー表示）
+                    this.highlightKey(key, true, true);
+                    
+                    // 少し待ってから赤字を解除して再度currentに戻す
+                    setTimeout(() => {
+                        this.markCharacter(this.currentIndex, 'reset');
+                        this.updateCurrentCharacter();
+                        this.highlightKey(key, false, true);
+                    }, 300);
+                }
+                
+                this.updateStats();
+            }
+
+            createGraphic(key) {
+                if (!this.relaxCanvas || !this.relaxCtx) {
+                    console.error('Canvas not initialized');
+                    return;
+                }
+                
+                const canvas = this.relaxCanvas;
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                
+                // キャンバスサイズが0の場合は再設定
+                if (canvas.width === 0 || canvas.height === 0) {
+                    const typingArea = document.getElementById('typingArea');
+                    canvas.width = typingArea.offsetWidth;
+                    canvas.height = typingArea.offsetHeight;
+                }
+                
+                // キーに応じた色とシェイプ
+                const shapes = [
+                    'circle', 'polygon', 'star', 'spiral', 'burst', 'wave'
+                ];
+                const keyCode = key.charCodeAt(0);
+                const shapeType = shapes[keyCode % shapes.length];
+                const hue = (keyCode * 30) % 360;
+                
+                this.graphics.push({
+                    x: centerX,
+                    y: centerY,
+                    type: shapeType,
+                    hue: hue,
+                    scale: 0,
+                    rotation: 0,
+                    life: 1.0,
+                    maxScale: 100 + Math.random() * 80
+                });
+                
+                console.log('Graphic created:', shapeType, 'at', centerX, centerY, 'hue', hue);
+            }
+
+            animateRelax() {
+                if (!this.isRelaxMode) return;
+                
+                if (!this.relaxCtx || !this.relaxCanvas) {
+                    console.error('Canvas context not available');
+                    return;
+                }
+                
+                const ctx = this.relaxCtx;
+                const canvas = this.relaxCanvas;
+                
+                // 背景をクリア（完全透明 - サイトの背景を見せる）
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // グラフィックを更新・描画
+                this.graphics = this.graphics.filter(g => {
+                    g.scale += (g.maxScale - g.scale) * 0.15;
+                    g.rotation += 0.05;
+                    g.life -= 0.012;
+                    
+                    if (g.life > 0) {
+                        ctx.save();
+                        ctx.translate(g.x, g.y);
+                        ctx.rotate(g.rotation);
+                        ctx.globalAlpha = g.life;
+                        
+                        this.drawShape(ctx, g);
+                        
+                        ctx.restore();
+                        return true;
+                    }
+                    return false;
+                });
+                
+                requestAnimationFrame(() => this.animateRelax());
+            }
+
+            drawShape(ctx, g) {
+                const color = `hsl(${g.hue}, 70%, 60%)`;
+                
+                switch (g.type) {
+                    case 'circle':
+                        ctx.beginPath();
+                        ctx.arc(0, 0, g.scale, 0, Math.PI * 2);
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                        break;
+                        
+                    case 'polygon':
+                        ctx.beginPath();
+                        const sides = 6;
+                        for (let i = 0; i <= sides; i++) {
+                            const angle = (Math.PI * 2 * i) / sides;
+                            const x = Math.cos(angle) * g.scale;
+                            const y = Math.sin(angle) * g.scale;
+                            if (i === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                        break;
+                        
+                    case 'star':
+                        ctx.beginPath();
+                        for (let i = 0; i < 10; i++) {
+                            const angle = (Math.PI * 2 * i) / 10;
+                            const radius = i % 2 === 0 ? g.scale : g.scale * 0.5;
+                            const x = Math.cos(angle) * radius;
+                            const y = Math.sin(angle) * radius;
+                            if (i === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.closePath();
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                        break;
+                        
+                    case 'spiral':
+                        ctx.beginPath();
+                        for (let i = 0; i < 100; i++) {
+                            const angle = (Math.PI * 6 * i) / 100;
+                            const radius = (g.scale * i) / 100;
+                            const x = Math.cos(angle) * radius;
+                            const y = Math.sin(angle) * radius;
+                            if (i === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                        break;
+                        
+                    case 'burst':
+                        for (let i = 0; i < 12; i++) {
+                            const angle = (Math.PI * 2 * i) / 12;
+                            ctx.beginPath();
+                            ctx.moveTo(0, 0);
+                            ctx.lineTo(Math.cos(angle) * g.scale, Math.sin(angle) * g.scale);
+                            ctx.strokeStyle = color;
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                        }
+                        break;
+                        
+                    case 'wave':
+                        ctx.beginPath();
+                        for (let i = -50; i <= 50; i++) {
+                            const x = i * 4;
+                            const y = Math.sin((i + g.rotation * 20) * 0.2) * g.scale * 0.3;
+                            if (i === -50) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                        break;
+                }
+            }
+
+            exitRelaxMode() {
+                this.isRelaxMode = false;
+                document.body.classList.remove('relax-mode');
+                
+                // スコア表示を復元
+                const statsBar = document.getElementById('statsBar');
+                if (statsBar) {
+                    statsBar.style.display = '';
+                    statsBar.classList.remove('hidden');
+                }
+                
+                // プログレスバーを復元
+                const progressBar = document.querySelector('.progress-bar');
+                if (progressBar) {
+                    progressBar.style.display = '';
+                }
+                
+                // ボタンの表示を復元
+                const pauseBtn = document.getElementById('pauseBtn');
+                const resumeBtn = document.getElementById('resumeBtn');
+                const resetBtn = document.getElementById('resetBtn');
+                const startBtn = document.getElementById('startBtn');
+                
+                // まずstyle.displayをリセット
+                if (pauseBtn) pauseBtn.style.display = '';
+                if (resumeBtn) resumeBtn.style.display = '';
+                if (resetBtn) resetBtn.style.display = '';
+                if (startBtn) startBtn.style.display = '';
+                
+                // ゲーム状態に応じてhiddenクラスで制御
+                if (this.isPlaying) {
+                    // 通常モード進行中の場合
+                    if (startBtn) startBtn.classList.add('hidden');
+                    if (this.isPaused) {
+                        if (pauseBtn) pauseBtn.classList.add('hidden');
+                        if (resumeBtn) resumeBtn.classList.remove('hidden');
+                    } else {
+                        if (pauseBtn) pauseBtn.classList.remove('hidden');
+                        if (resumeBtn) resumeBtn.classList.add('hidden');
+                    }
+                    if (resetBtn) resetBtn.classList.remove('hidden');
+                } else {
+                    // 通常モード未開始の場合
+                    if (startBtn) startBtn.classList.remove('hidden');
+                    if (pauseBtn) pauseBtn.classList.add('hidden');
+                    if (resumeBtn) resumeBtn.classList.add('hidden');
+                    if (resetBtn) resetBtn.classList.add('hidden');
+                }
+                
+                // Canvas削除
+                const canvas = document.getElementById('relaxCanvas');
+                if (canvas) {
+                    canvas.remove();
+                }
+                
+                // グラフィックリセット
+                this.graphics = [];
+                
+                // リサイズハンドラー削除
+                if (this.resizeHandler) {
+                    window.removeEventListener('resize', this.resizeHandler);
+                    this.resizeHandler = null;
+                }
+                
+                // 遊びモードボタンのスタイルをリセット
+                const relaxBtn = document.getElementById('relaxBtn');
+                if (relaxBtn && relaxBtn.parentElement) {
+                    relaxBtn.parentElement.style.background = '';
+                }
+                
+                // UI復元
+                if (!this.isPlaying) {
+                    document.getElementById('textDisplay').innerHTML = this.t('startMessage');
+                }
+            }
+
+            showGuide() {
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <h2>${this.t('guideTitle')}</h2>
+                        <div class="guide-content">
+                            <div class="guide-section">
+                                <h3>${this.t('aboutTitle')}</h3>
+                                <p>${this.t('aboutText')}</p>
+                            </div>
+
+                            <div class="guide-section">
+                                <h3>${this.t('howToTitle')}</h3>
+                                <ol style="margin-left: 20px; line-height: 2;">
+                                    <li><span class="keyboard-hint">${this.t('start')}</span> ${this.t('howToStep1')}</li>
+                                    <li>${this.t('howToStep2')}</li>
+                                    <li>${this.t('howToStep3')}</li>
+                                    <li>${this.t('howToStep4')}</li>
+                                    <li>${this.t('howToStep5')}</li>
+                                </ol>
+                            </div>
+
+                            <div class="guide-section">
+                                <h3>${this.t('statsTitle')}</h3>
+                                
+                                <div class="stat-explanation">
+                                    <strong>${this.t('progress')}</strong>
+                                    <p>${this.t('progressDesc')}</p>
+                                </div>
+
+                                <div class="stat-explanation">
+                                    <strong>WPM (Words Per Minute)</strong>
+                                    <p>${this.t('wpmDesc')}<br>
+                                    ${this.t('wpmNote')}</p>
+                                    <ul style="margin-top: 10px;">
+                                        <li>${this.t('wpmLevel1')}</li>
+                                        <li>${this.t('wpmLevel2')}</li>
+                                        <li>${this.t('wpmLevel3')}</li>
+                                        <li>${this.t('wpmLevel4')}</li>
+                                    </ul>
+                                </div>
+
+                                <div class="stat-explanation">
+                                    <strong>${this.t('accuracyRate')}</strong>
+                                    <p>${this.t('accuracyDesc')}</p>
+                                    <ul style="margin-top: 10px;">
+                                        <li>${this.t('accuracyLevel1')}</li>
+                                        <li>${this.t('accuracyLevel2')}</li>
+                                        <li>${this.t('accuracyLevel3')}</li>
+                                        <li>${this.t('accuracyLevel4')}</li>
+                                    </ul>
+                                </div>
+
+                                <div class="stat-explanation">
+                                    <strong>${this.t('time')}</strong>
+                                    <p>${this.t('timeDesc')}</p>
+                                </div>
+                            </div>
+
+                            <div class="guide-section">
+                                <h3>${this.t('rankTitle')}</h3>
+                                <p>${this.t('rankDesc')}</p>
+                                <ul style="margin-left: 20px;">
+                                    <li><strong style="color: #FFD700;">${this.t('rankS')}</strong></li>
+                                    <li><strong style="color: #4CAF50;">${this.t('rankA')}</strong></li>
+                                    <li><strong style="color: #2196F3;">${this.t('rankB')}</strong></li>
+                                    <li><strong style="color: #FF9800;">${this.t('rankC')}</strong></li>
+                                    <li><strong style="color: #f44336;">${this.t('rankD')}</strong></li>
+                                </ul>
+                                <p style="margin-top: 15px;">${this.t('scoreFormula')}</p>
+                            </div>
+
+                            <div class="guide-section">
+                                <h3>${this.t('soundTitle')}</h3>
+                                <div class="feature-list">
+                                    <div class="feature-item">
+                                        <h4>🎹 ${this.t('piano')}</h4>
+                                        <p>${this.t('pianoDesc')}</p>
+                                    </div>
+                                    <div class="feature-item">
+                                        <h4>🥁 ${this.t('drum')}</h4>
+                                        <p>${this.t('drumDesc')}</p>
+                                    </div>
+                                    <div class="feature-item">
+                                        <h4>🎛️ ${this.t('synth')}</h4>
+                                        <p>${this.t('synthDesc')}</p>
+                                    </div>
+                                    <div class="feature-item">
+                                        <h4>🌊 ${this.t('ambient')}</h4>
+                                        <p>${this.t('ambientDesc')}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="guide-section">
+                                <h3>${this.t('customizeTitle')}</h3>
+                                <p>${this.t('customizeDesc')}</p>
+                                <ul style="margin-left: 20px;">
+                                    <li>${this.t('customizeItem1')}</li>
+                                    <li>${this.t('customizeItem2')}</li>
+                                    <li>${this.t('customizeItem3')}</li>
+                                    <li>${this.t('customizeItem4')}</li>
+                                    <li>${this.t('customizeItem5')}</li>
+                                    <li>${this.t('customizeItem6')}</li>
+                                </ul>
+                            </div>
+
+                            <div class="guide-section">
+                                <h3>${this.t('tipsTitle')}</h3>
+                                <ul style="margin-left: 20px;">
+                                    <li>${this.t('tip1')}</li>
+                                    <li>${this.t('tip2')}</li>
+                                    <li>${this.t('tip3')}</li>
+                                    <li>${this.t('tip4')}</li>
+                                    <li>${this.t('tip5')}</li>
+                                </ul>
+                            </div>
+
+                            <div class="guide-section">
+                                <h3>${this.t('visualTitle')}</h3>
+                                <ul style="margin-left: 20px;">
+                                    <li>${this.t('visualItem1')}</li>
+                                    <li>${this.t('visualItem2')}</li>
+                                    <li>${this.t('visualItem3')}</li>
+                                    <li>${this.t('visualItem4')}</li>
+                                    <li>${this.t('visualItem5')}</li>
+                                </ul>
+                            </div>
+
+                            <div class="guide-section">
+                                <h3>${this.t('historyFeatureTitle')}</h3>
+                                <p>${this.t('historyFeatureDesc')}</p>
+                                <ul style="margin-left: 20px;">
+                                    <li>${this.t('historyItem1')}</li>
+                                    <li>${this.t('historyItem2')}</li>
+                                    <li>${this.t('historyItem3')}</li>
+                                    <li>${this.t('historyItem4')}</li>
+                                    <li>${this.t('historyItem5')}</li>
+                                </ul>
+                                <p style="margin-top: 10px;">${this.t('historyNote')}</p>
+                            </div>
+
+                            <div class="guide-section">
+                                <h3>${this.t('dataTitle')}</h3>
+                                <p>${this.t('dataDesc')}</p>
+                                <ul style="margin-left: 20px;">
+                                    <li>${this.t('dataItem1')}</li>
+                                    <li>${this.t('dataItem2')}</li>
+                                    <li>${this.t('dataItem3')}</li>
+                                </ul>
+                            </div>
+
+                            <div class="guide-section">
+                                <h3>${this.t('shortcutTitle')}</h3>
+                                <ul style="margin-left: 20px;">
+                                    <li><span class="keyboard-hint">SPACE</span>${this.t('shortcutItem1')}</li>
+                                    <li><span class="keyboard-hint">Shift</span>${this.t('shortcutItem2')}</li>
+                                </ul>
+                                <p style="margin-top: 10px;"><em>${this.t('shortcutNote')}</em></p>
+                            </div>
+                        </div>
+                        <div style="margin-top: 20px; text-align: center;">
+                            <button onclick="app.closeModal(this)">${this.t('close')}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        this.closeModal(modal);
+                    }
+                });
+            }
+
+            showSettings() {
+                // カスタム問題が存在するかチェック
+                const hasCustomProblems = 
+                    (this.customProblems.beginner && this.customProblems.beginner.length > 0) ||
+                    (this.customProblems.intermediate && this.customProblems.intermediate.length > 0) ||
+                    (this.customProblems.advanced && this.customProblems.advanced.length > 0);
+                
+                // カスタム問題がない場合は設定をdefaultまたはbothに変更
+                if (!hasCustomProblems && this.problemSource === 'custom') {
+                    this.problemSource = 'both';
+                    this.saveSettings();
+                }
+                
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
+                        <h2>⚙️ ${this.t('settingsTitle')}</h2>
+                        
+                        <!-- タブナビゲーション -->
+                        <div class="tabs">
+                            <button class="tab active" onclick="app.switchSettingsTab('general')">🎛️ ${this.t('generalSettings')}</button>
+                            <button class="tab" onclick="app.switchSettingsTab('problems')">📝 ${this.t('problemManagement')}</button>
+                        </div>
+                        
+                        <!-- 一般設定タブ -->
+                        <div class="tab-content active" id="settings-tab-general" style="padding: 20px 0;">
+                            <div class="settings-panel">
+                                <div class="settings-grid">
+                                    <div class="setting-group">
+                                        <label>🌐 ${this.t('language')}</label>
+                                        <select onchange="app.setLanguage(this.value)">
+                                            <option value="ja" ${this.language === 'ja' ? 'selected' : ''}>日本語</option>
+                                            <option value="en" ${this.language === 'en' ? 'selected' : ''}>English</option>
+                                        </select>
+                                    </div>
+                                    <div class="setting-group">
+                                        <label>📊 ${this.t('difficulty')}</label>
+                                        <select id="difficultySelect" onchange="app.setDifficulty(this.value)">
+                                            <option value="beginner" ${this.difficulty === 'beginner' ? 'selected' : ''}>${this.t('beginner')}</option>
+                                            <option value="intermediate" ${this.difficulty === 'intermediate' ? 'selected' : ''}>${this.t('intermediate')}</option>
+                                            <option value="advanced" ${this.difficulty === 'advanced' ? 'selected' : ''}>${this.t('advanced')}</option>
+                                        </select>
+                                    </div>
+                                    <div class="setting-group">
+                                        <label>🔢 ${this.t('problemCount')}</label>
+                                        <select onchange="app.setProblemsPerSession(parseInt(this.value))">
+                                            <option value="5" ${this.problemsPerSession === 5 ? 'selected' : ''}>5</option>
+                                            <option value="10" ${this.problemsPerSession === 10 ? 'selected' : ''}>10</option>
+                                            <option value="20" ${this.problemsPerSession === 20 ? 'selected' : ''}>20</option>
+                                        </select>
+                                    </div>
+                                    <div class="setting-group">
+                                        <label>📚 ${this.t('problemSource')}</label>
+                                        <select onchange="app.setProblemSource(this.value)">
+                                            <option value="default" ${this.problemSource === 'default' ? 'selected' : ''}>${this.t('defaultProblems')}</option>
+                                            <option value="custom" ${this.problemSource === 'custom' ? 'selected' : ''} ${!hasCustomProblems ? 'disabled' : ''}>${this.t('customProblemsOnly')}${!hasCustomProblems ? ' (' + this.t('noCustomProblems') + ')' : ''}</option>
+                                            <option value="both" ${this.problemSource === 'both' ? 'selected' : ''}>${this.t('bothProblems')}</option>
+                                        </select>
+                                    </div>
+                                    <div class="setting-group">
+                                        <label>🎵 ${this.t('soundTheme')}</label>
+                                        <select onchange="app.setSoundTheme(this.value)">
+                                            <option value="piano" ${this.audioSystem.soundTheme === 'piano' ? 'selected' : ''}>${this.t('piano')}</option>
+                                            <option value="drum" ${this.audioSystem.soundTheme === 'drum' ? 'selected' : ''}>${this.t('drum')}</option>
+                                            <option value="synth" ${this.audioSystem.soundTheme === 'synth' ? 'selected' : ''}>${this.t('synth')}</option>
+                                            <option value="ambient" ${this.audioSystem.soundTheme === 'ambient' ? 'selected' : ''}>${this.t('ambient')}</option>
+                                        </select>
+                                    </div>
+                                    <div class="setting-group">
+                                        <label>🔊 ${this.t('volume')}</label>
+                                        <input type="range" min="0" max="100" value="${this.audioSystem.masterVolume * 100}" 
+                                               oninput="app.setVolume(this.value / 100); document.getElementById('volumeDisplay').textContent = this.value + '%'">
+                                        <div class="volume-display" id="volumeDisplay">${Math.round(this.audioSystem.masterVolume * 100)}%</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid var(--border); display: flex; gap: 10px; justify-content: center;">
+                                <button onclick="app.resetSettings()">🔄 ${this.t('resetSettings')}</button>
+                                <button onclick="app.exportData()">💾 ${this.t('exportData')}</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 問題管理タブ -->
+                        <div class="tab-content" id="settings-tab-problems" style="padding: 20px 0;">
+                            ${this.getProblemManagementHTML()}
+                        </div>
+                        
+                        <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid var(--border); text-align: center;">
+                            <button class="secondary" onclick="app.closeModal(this)">${this.t('close')}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        this.closeModal(modal);
+                    }
+                });
+            }
+
+            switchSettingsTab(tabName) {
+                // すべてのタブとコンテンツの active クラスを削除
+                const modal = document.querySelector('.modal');
+                if (!modal) return;
+                
+                modal.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
+                modal.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                
+                // 選択されたタブとコンテンツに active クラスを追加
+                event.target.classList.add('active');
+                modal.querySelector(`#settings-tab-${tabName}`).classList.add('active');
+            }
+
+            getProblemManagementHTML() {
+                return `
+                    <div style="margin-bottom: 20px;">
+                        <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                            ${this.t('problemManagementDesc')}
+                        </p>
+                    </div>
+                    
+                    <!-- 難易度タブ -->
+                    <div class="tabs" style="margin-bottom: 15px;">
+                        <button class="tab active" onclick="app.switchProblemTab('beginner')">📘 ${this.t('beginner')}</button>
+                        <button class="tab" onclick="app.switchProblemTab('intermediate')">📗 ${this.t('intermediate')}</button>
+                        <button class="tab" onclick="app.switchProblemTab('advanced')">📕 ${this.t('advanced')}</button>
+                    </div>
+                    
+                    ${this.getProblemTabContents()}
+                    
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid var(--border); display: flex; gap: 10px; justify-content: center;">
+                        <button onclick="app.exportCustomProblems()">📤 ${this.t('exportProblems')}</button>
+                        <button onclick="app.importCustomProblems()">📥 ${this.t('importProblems')}</button>
+                    </div>
+                `;
+            }
+
+            getProblemTabContents() {
+                return ['beginner', 'intermediate', 'advanced'].map((difficulty, index) => {
+                    const defaultProblems = problemDatabase[difficulty] || [];
+                    const customProblems = this.customProblems[difficulty] || [];
+                    
+                    const defaultProblemsHTML = `
+                        <div style="margin-bottom: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h4 style="color: var(--accent); font-size: 16px; margin: 0;">📚 ${this.t('defaultProblems')} (${defaultProblems.length})</h4>
+                            </div>
+                            <div style="max-height: 200px; overflow-y: auto; padding: 10px; background: var(--bg-secondary); border-radius: 5px; border: 1px solid var(--border);">
+                                ${defaultProblems.slice(0, 10).map((problem, idx) => `
+                                    <div style="padding: 6px; margin-bottom: 3px; font-size: 13px; opacity: 0.8;">
+                                        ${idx + 1}. ${this.escapeHtml(problem)}
+                                    </div>
+                                `).join('')}
+                                ${defaultProblems.length > 10 ? `<div style="text-align: center; padding: 10px; opacity: 0.6; font-size: 13px;">...${this.t('andMore', {count: defaultProblems.length - 10})}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                    
+                    const customProblemsHTML = customProblems.map((problem, idx) => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 8px; background: var(--bg-secondary); border-radius: 5px; border: 1px solid var(--border);">
+                            <span style="flex: 1; margin-right: 10px;">${this.escapeHtml(problem)}</span>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="secondary" style="padding: 5px 12px; font-size: 13px;" data-difficulty="${difficulty}" data-index="${idx}" onclick="app.editProblemByEvent(event)">✏️</button>
+                                <button class="danger" style="padding: 5px 12px; font-size: 13px;" data-difficulty="${difficulty}" data-index="${idx}" onclick="app.deleteProblemByEvent(event)">🗑️</button>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    const customSection = `
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h4 style="color: var(--accent); font-size: 16px; margin: 0;">✏️ ${this.t('customProblemsOnly')} (${customProblems.length})</h4>
+                                <button style="padding: 8px 16px; font-size: 14px;" data-difficulty="${difficulty}" onclick="app.showAddProblemDialogByEvent(event)">➕ ${this.t('addProblem')}</button>
+                            </div>
+                            ${customProblems.length > 0 ? `
+                                <div style="max-height: 250px; overflow-y: auto;">
+                                    ${customProblemsHTML}
+                                </div>
+                            ` : `<p style="text-align: center; padding: 30px; opacity: 0.6; background: var(--bg-secondary); border-radius: 5px;">${this.t('noCustomProblems')}</p>`}
+                        </div>
+                    `;
+                    
+                    return `
+                        <div class="tab-content ${index === 0 ? 'active' : ''}" id="problem-tab-${difficulty}">
+                            <div style="margin-bottom: 15px; padding: 12px; background: var(--bg-secondary); border-radius: 5px; border-left: 4px solid var(--accent);">
+                                <strong>${this.t('totalProblems')}: ${defaultProblems.length + customProblems.length}</strong>
+                                <span style="opacity: 0.7; margin-left: 10px; font-size: 14px;">(${this.t('default')}: ${defaultProblems.length} / ${this.t('custom')}: ${customProblems.length})</span>
+                            </div>
+                            ${defaultProblemsHTML}
+                            ${customSection}
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            switchProblemTab(difficulty) {
+                const modal = document.querySelector('.modal');
+                if (!modal) return;
+                
+                // 問題管理タブ内のタブ切り替え
+                const problemSection = modal.querySelector('#settings-tab-problems');
+                if (!problemSection) return;
+                
+                problemSection.querySelectorAll('.tabs .tab').forEach(tab => tab.classList.remove('active'));
+                problemSection.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                
+                event.target.classList.add('active');
+                problemSection.querySelector(`#problem-tab-${difficulty}`).classList.add('active');
+            }
+
+            showHistory() {
+                const historyHTML = this.history.slice().reverse().map(record => `
+                    <div class="history-item">
+                        <div>
+                            <div><strong>${new Date(record.date).toLocaleString(this.language === 'ja' ? 'ja-JP' : 'en-US')}</strong></div>
+                            <div>${this.t('rank')}: <span class="rank ${record.rank}" style="font-size: 20px;">${record.rank}</span> | 
+                                 ${this.t('score')}: ${record.score} | WPM: ${record.wpm} | ${this.t('accuracyRate')}: ${record.accuracy}%</div>
+                        </div>
+                        <button class="danger" onclick="app.deleteHistory('${record.date}')">${this.t('delete')}</button>
+                    </div>
+                `).join('');
+
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <h2>${this.t('historyTitle')}</h2>
+                        <div class="history-panel">
+                            ${this.history.length > 0 ? historyHTML : `<p style="text-align: center; padding: 20px;">${this.t('noHistory')}</p>`}
+                        </div>
+                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
+                            <button class="danger" onclick="app.clearHistory()">${this.t('deleteAll')}</button>
+                            <button class="secondary" onclick="app.closeModal(this)">${this.t('close')}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        this.closeModal(modal);
+                    }
+                });
+            }
+
+            setDifficulty(difficulty) {
+                this.difficulty = difficulty;
+                this.saveSettings();
+                this.showMessage(this.t('difficultyChanged'));
+            }
+
+            setProblemsPerSession(count) {
+                this.problemsPerSession = count;
+                this.saveSettings();
+                this.showMessage(this.t('problemCountChanged'));
+            }
+
+            setProblemSource(source) {
+                this.problemSource = source;
+                this.saveSettings();
+                this.showMessage(this.t('problemSourceChanged'));
+            }
+
+            setSoundTheme(theme) {
+                this.audioSystem.setSoundTheme(theme);
+                this.saveSettings();
+                this.showMessage(this.t('soundThemeChanged'));
+            }
+
+            setVolume(volume) {
+                this.audioSystem.setVolume(volume);
+                this.saveSettings();
+            }
+
+            setLanguage(lang) {
+                this.language = lang;
+                this.saveSettings();
+                this.updateLanguage();
+                // モーダルを閉じて再表示
+                const modal = document.querySelector('.modal');
+                if (modal) modal.remove();
+                this.showSettings();
+            }
+
+            t(key, params = {}) {
+                let text = translations[this.language][key] || key;
+                // プレースホルダーを置換 ({count} など)
+                Object.keys(params).forEach(param => {
+                    text = text.replace(`{${param}}`, params[param]);
+                });
+                return text;
+            }
+
+            updateLanguage() {
+                // ヘッダー
+                document.querySelector('h1').textContent = this.t('title');
+                document.getElementById('guideBtn').textContent = this.t('guide');
+                document.getElementById('historyBtnHeader').textContent = this.t('history');
+                document.getElementById('relaxBtn').textContent = this.t('relaxMode');
+                document.getElementById('settingsBtn').textContent = this.t('settings');
+                
+                // ステータスバー
+                document.querySelectorAll('.stat-label')[0].textContent = this.t('progress');
+                document.querySelectorAll('.stat-label')[2].textContent = this.t('accuracy');
+                document.querySelectorAll('.stat-label')[3].textContent = this.t('time');
+                
+                // ボタン
+                if (!this.isPlaying) {
+                    document.getElementById('textDisplay').innerHTML = this.t('startMessage');
+                    const startBtn = document.getElementById('startBtn');
+                    if (startBtn && !startBtn.classList.contains('hidden')) {
+                        startBtn.innerHTML = this.t('start');
+                    }
+                }
+                
+                const pauseBtn = document.getElementById('pauseBtn');
+                if (pauseBtn) pauseBtn.innerHTML = this.t('pause');
+                
+                const resumeBtn = document.getElementById('resumeBtn');
+                if (resumeBtn) resumeBtn.innerHTML = this.t('resume');
+                
+                const resetBtn = document.getElementById('resetBtn');
+                if (resetBtn) resetBtn.innerHTML = this.t('reset');
+            }
+
+            toggleTheme() {
+                this.theme = this.theme === 'light' ? 'dark' : 'light';
+                document.body.setAttribute('data-theme', this.theme);
+                this.saveSettings();
+            }
+
+            toggleMenu() {
+                const dropdown = document.getElementById('menuDropdown');
+                const overlay = document.getElementById('menuOverlay');
+                
+                if (dropdown.classList.contains('active')) {
+                    this.closeMenu();
+                } else {
+                    dropdown.classList.add('active');
+                    overlay.classList.add('active');
+                }
+            }
+
+            closeMenu() {
+                const dropdown = document.getElementById('menuDropdown');
+                const overlay = document.getElementById('menuOverlay');
+                
+                dropdown.classList.remove('active');
+                overlay.classList.remove('active');
+            }
+
+            resetSettings() {
+                if (confirm(this.t('confirmReset'))) {
+                    this.difficulty = 'beginner';
+                    this.problemsPerSession = 10;
+                    this.problemSource = 'both';
+                    this.audioSystem.setSoundTheme('piano');
+                    this.audioSystem.setVolume(0.5);
+                    this.saveSettings();
+                    this.showMessage(this.t('settingsReset'));
+                    // モーダルを閉じて再表示
+                    const modal = document.querySelector('.modal');
+                    if (modal) modal.remove();
+                    this.showSettings();
+                }
+            }
+
+            saveSettings() {
+                const settings = {
+                    difficulty: this.difficulty,
+                    problemsPerSession: this.problemsPerSession,
+                    problemSource: this.problemSource,
+                    soundTheme: this.audioSystem.soundTheme,
+                    volume: this.audioSystem.masterVolume,
+                    theme: this.theme,
+                    language: this.language
+                };
+                localStorage.setItem('typingTrainerSettings', JSON.stringify(settings));
+            }
+
+            loadSettings() {
+                const saved = localStorage.getItem('typingTrainerSettings');
+                if (saved) {
+                    const settings = JSON.parse(saved);
+                    this.difficulty = settings.difficulty || 'beginner';
+                    this.problemsPerSession = settings.problemsPerSession || 10;
+                    this.problemSource = settings.problemSource || 'both';
+                    this.audioSystem.setSoundTheme(settings.soundTheme || 'piano');
+                    this.audioSystem.setVolume(settings.volume || 0.5);
+                    this.theme = settings.theme || 'light';
+                    this.language = settings.language || 'en';
+                    document.body.setAttribute('data-theme', this.theme);
+                }
+            }
+
+            saveResult(result) {
+                this.history.push(result);
+                // 最大100件まで保存
+                if (this.history.length > 100) {
+                    this.history.shift();
+                }
+                localStorage.setItem('typingTrainerHistory', JSON.stringify(this.history));
+            }
+
+            loadHistory() {
+                const saved = localStorage.getItem('typingTrainerHistory');
+                if (saved) {
+                    this.history = JSON.parse(saved);
+                }
+            }
+
+            deleteHistory(date) {
+                if (confirm(this.t('confirmDelete'))) {
+                    this.history = this.history.filter(record => record.date !== date);
+                    localStorage.setItem('typingTrainerHistory', JSON.stringify(this.history));
+                    this.showMessage(this.t('historyDeleted'));
+                    // モーダルを再表示
+                    const modal = document.querySelector('.modal');
+                    if (modal) modal.remove();
+                    this.showHistory();
+                }
+            }
+
+            clearHistory() {
+                if (confirm(this.t('confirmDeleteAll'))) {
+                    this.history = [];
+                    localStorage.setItem('typingTrainerHistory', JSON.stringify(this.history));
+                    this.showMessage(this.t('allHistoryDeleted'));
+                    const modal = document.querySelector('.modal');
+                    if (modal) modal.remove();
+                }
+            }
+
+            exportData() {
+                const data = {
+                    settings: {
+                        difficulty: this.difficulty,
+                        problemsPerSession: this.problemsPerSession,
+                        soundTheme: this.audioSystem.soundTheme,
+                        volume: this.audioSystem.masterVolume,
+                        theme: this.theme,
+                        language: this.language
+                    },
+                    history: this.history
+                };
+                
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `typing-trainer-data-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                this.showMessage(this.t('dataExported'));
+            }
+
+            showMessage(text) {
+                const message = document.createElement('div');
+                message.className = 'message';
+                message.textContent = text;
+                document.body.appendChild(message);
+                
+                setTimeout(() => {
+                    message.remove();
+                }, 3000);
+            }
+
+            updateUI() {
+                // UI更新用のヘルパーメソッド
+            }
+        }
+
+        // アプリケーション初期化
+        const app = new TypingTrainerApp();
+
+        // ページ読み込み完了時
+        window.addEventListener('load', () => {
+            app.updateStats();
+        });
+
+        // タイマー更新
+        setInterval(() => {
+            if (app.isPlaying && !app.isPaused) {
+                app.updateStats();
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
